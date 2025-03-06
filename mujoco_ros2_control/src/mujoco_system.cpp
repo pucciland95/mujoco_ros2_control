@@ -342,8 +342,8 @@ void MujocoSystem::register_sensors(
   // Checking how many sensors and sensor types are there
   for (const auto &sensor : hardware_info.sensors)
   {
-    if (sensor.name == "tcp_pose") pose_sensor_count++;    
-    else if(sensor.name == "ft_sensor")  ft_sensor_count++;    
+    if (sensor.name.find("pose") != std::string::npos) pose_sensor_count++;    
+    else if(sensor.name.find("fts") != std::string::npos) ft_sensor_count++;    
     else
     {
       RCLCPP_ERROR_STREAM(
