@@ -107,6 +107,13 @@ public:
     SensorData<Eigen::Vector3d> linear_velocity;
   };
 
+  struct PoseSensorData
+  {
+    std::string name;
+    SensorData<Eigen::Vector3d> position;
+    SensorData<Eigen::Vector4d> orientation;
+  };
+
 private:
   void register_joints(
     const urdf::Model &urdf_model, const hardware_interface::HardwareInfo &hardware_info);
@@ -125,6 +132,7 @@ private:
   std::vector<JointState> joint_states_;
   std::vector<FTSensorData> ft_sensor_data_;
   std::vector<IMUSensorData> imu_sensor_data_;
+  std::vector<PoseSensorData> pose_sensor_data_;
 
   mjModel *mj_model_;
   mjData *mj_data_;
