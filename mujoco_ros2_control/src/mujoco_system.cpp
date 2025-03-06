@@ -63,6 +63,19 @@ hardware_interface::return_type MujocoSystem::read(
     data.torque.data.z() = -mj_data_->sensordata[data.torque.mj_sensor_index + 2];
   }
 
+  // Pose Sensor data
+  for (auto &mydata : pose_sensor_data_)
+  {  
+    mydata.position.data.x() = mj_data_->sensordata[mydata.position.mj_sensor_index];
+    mydata.position.data.y() = mj_data_->sensordata[mydata.position.mj_sensor_index + 1];
+    mydata.position.data.z() = mj_data_->sensordata[mydata.position.mj_sensor_index + 2];
+
+    mydata.orientation.data.x() = mj_data_->sensordata[mydata.orientation.mj_sensor_index];
+    mydata.orientation.data.y() = mj_data_->sensordata[mydata.orientation.mj_sensor_index + 1];
+    mydata.orientation.data.z() = mj_data_->sensordata[mydata.orientation.mj_sensor_index + 2];
+    mydata.orientation.data.w() = mj_data_->sensordata[mydata.orientation.mj_sensor_index + 3];
+  }
+
   return hardware_interface::return_type::OK;
 }
 
@@ -324,67 +337,147 @@ void MujocoSystem::register_joints(
 void MujocoSystem::register_sensors(
   const urdf::Model & /* urdf_model */, const hardware_interface::HardwareInfo &hardware_info)
 {
-  // TODO(sangteak601): for now, assuming all sensors are ft_sensor
-  ft_sensor_data_.resize(hardware_info.sensors.size());
+  size_t ft_sensor_count = 0;
+  size_t pose_sensor_count = 0;
 
-  for (size_t sensor_index = 0; sensor_index < hardware_info.sensors.size(); sensor_index++)
+  // Checking how many sensors and sensor types are there
+  for (const auto &sensor : hardware_info.sensors)
   {
-    auto sensor = hardware_info.sensors.at(sensor_index);
-
-    FTSensorData sensor_data;
-    sensor_data.name = sensor.name;
-    sensor_data.force.name = sensor.name + "_force";
-    sensor_data.torque.name = sensor.name + "_torque";
-
-    int force_sensor_id =
-      mj_name2id(mj_model_, mjtObj::mjOBJ_SENSOR, sensor_data.force.name.c_str());
-    int torque_sensor_id =
-      mj_name2id(mj_model_, mjtObj::mjOBJ_SENSOR, sensor_data.torque.name.c_str());
-
-    if (force_sensor_id == -1 || torque_sensor_id == -1)
+    if (sensor.name == "tcp_pose") pose_sensor_count++;    
+    else if(sensor.name == "ft_sensor")  ft_sensor_count++;    
+    else
     {
       RCLCPP_ERROR_STREAM(
-        logger_, "Failed to find sensor in mujoco model, sensor name: " << sensor.name);
-      continue;
+        logger_, "Sensor type not supported, sensor name: " << sensor.name);
     }
+  }
 
-    sensor_data.force.mj_sensor_index = mj_model_->sensor_adr[force_sensor_id];
-    sensor_data.torque.mj_sensor_index = mj_model_->sensor_adr[torque_sensor_id];
+  ft_sensor_data_.resize(ft_sensor_count);
+  pose_sensor_data_.resize(pose_sensor_count);
 
-    ft_sensor_data_.at(sensor_index) = sensor_data;
-    auto &last_sensor_data = ft_sensor_data_.at(sensor_index);
+  size_t ft_sensor_index = 0;
+  size_t pose_sensor_index = 0;
 
-    for (const auto &state_if : sensor.state_interfaces)
+  for (const auto &sensor : hardware_info.sensors)
+  {
+    if (sensor.name == "tcp_pose")
     {
-      if (state_if.name == "force.x")
+      PoseSensorData sensor_data;
+      sensor_data.name = sensor.name;
+      int position_sensor_id = mj_name2id(mj_model_, mjtObj::mjOBJ_SENSOR, (sensor.name + "_position").c_str());
+      int orientation_sensor_id = mj_name2id(mj_model_, mjtObj::mjOBJ_SENSOR, (sensor.name + "_orientation").c_str());
+
+      if (position_sensor_id == -1 || orientation_sensor_id == -1)
       {
-        state_interfaces_.emplace_back(
-          sensor.name, state_if.name, &last_sensor_data.force.data.x());
+        RCLCPP_ERROR_STREAM(
+          logger_, "Failed to find sensor in mujoco model, sensor name: " << sensor.name);
+        continue;
       }
-      else if (state_if.name == "force.y")
+
+      sensor_data.position.mj_sensor_index = mj_model_->sensor_adr[position_sensor_id];
+      sensor_data.orientation.mj_sensor_index = mj_model_->sensor_adr[orientation_sensor_id];
+
+      pose_sensor_data_.at(pose_sensor_index) = sensor_data;
+      auto &last_tcp_sensor_data = pose_sensor_data_.at(pose_sensor_index);
+      pose_sensor_index++;
+
+      for (const auto &state_if : sensor.state_interfaces)
       {
-        state_interfaces_.emplace_back(
-          sensor.name, state_if.name, &last_sensor_data.force.data.y());
+        if (state_if.name == "position.x")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_tcp_sensor_data.position.data.x());
+        }
+        else if (state_if.name == "position.y")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_tcp_sensor_data.position.data.y());
+        }
+        else if (state_if.name == "position.z")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_tcp_sensor_data.position.data.z());
+        }
+        else if (state_if.name == "orientation.x")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_tcp_sensor_data.orientation.data.x());
+        }
+        else if (state_if.name == "orientation.y")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_tcp_sensor_data.orientation.data.y());
+        }
+        else if (state_if.name == "orientation.z")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_tcp_sensor_data.orientation.data.z());
+        }
+        else if (state_if.name == "orientation.w")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_tcp_sensor_data.orientation.data.w());
+        }
       }
-      else if (state_if.name == "force.z")
+    }
+    else
+    {
+      FTSensorData sensor_data;
+      sensor_data.name = sensor.name;
+      sensor_data.force.name = sensor.name + "_force";
+      sensor_data.torque.name = sensor.name + "_torque";
+
+      int force_sensor_id =
+        mj_name2id(mj_model_, mjtObj::mjOBJ_SENSOR, sensor_data.force.name.c_str());
+      int torque_sensor_id =
+        mj_name2id(mj_model_, mjtObj::mjOBJ_SENSOR, sensor_data.torque.name.c_str());
+
+      if (force_sensor_id == -1 || torque_sensor_id == -1)
       {
-        state_interfaces_.emplace_back(
-          sensor.name, state_if.name, &last_sensor_data.force.data.z());
+        RCLCPP_ERROR_STREAM(
+          logger_, "Failed to find sensor in mujoco model, sensor name: " << sensor.name);
+        continue;
       }
-      else if (state_if.name == "torque.x")
+
+      sensor_data.force.mj_sensor_index = mj_model_->sensor_adr[force_sensor_id];
+      sensor_data.torque.mj_sensor_index = mj_model_->sensor_adr[torque_sensor_id];
+
+      ft_sensor_data_.at(ft_sensor_index) = sensor_data;
+      auto &last_sensor_data = ft_sensor_data_.at(ft_sensor_index);
+      ft_sensor_index++;
+
+      for (const auto &state_if : sensor.state_interfaces)
       {
-        state_interfaces_.emplace_back(
-          sensor.name, state_if.name, &last_sensor_data.torque.data.x());
-      }
-      else if (state_if.name == "torque.y")
-      {
-        state_interfaces_.emplace_back(
-          sensor.name, state_if.name, &last_sensor_data.torque.data.y());
-      }
-      else if (state_if.name == "torque.z")
-      {
-        state_interfaces_.emplace_back(
-          sensor.name, state_if.name, &last_sensor_data.torque.data.z());
+        if (state_if.name == "force.x")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_sensor_data.force.data.x());
+        }
+        else if (state_if.name == "force.y")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_sensor_data.force.data.y());
+        }
+        else if (state_if.name == "force.z")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_sensor_data.force.data.z());
+        }
+        else if (state_if.name == "torque.x")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_sensor_data.torque.data.x());
+        }
+        else if (state_if.name == "torque.y")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_sensor_data.torque.data.y());
+        }
+        else if (state_if.name == "torque.z")
+        {
+          state_interfaces_.emplace_back(
+            sensor.name, state_if.name, &last_sensor_data.torque.data.z());
+        }
       }
     }
   }
