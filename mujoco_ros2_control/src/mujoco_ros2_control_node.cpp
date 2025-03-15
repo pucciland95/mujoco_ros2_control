@@ -21,7 +21,6 @@
 #include "mujoco/mujoco.h"
 #include "rclcpp/rclcpp.hpp"
 
-#include "mujoco_ros2_control/mujoco_rendering.hpp"
 #include "mujoco_ros2_control/mujoco_ros2_control.hpp"
 
 // MuJoCo data structures
@@ -67,13 +66,8 @@ int main(int argc, const char **argv)
   RCLCPP_INFO_STREAM(
     node->get_logger(), "Mujoco ros2 controller has been successfully initialized !");
 
-  // initialize mujoco redering
-  auto rendering = mujoco_ros2_control::MujocoRendering::get_instance();
-  rendering->init(mujoco_model, mujoco_data);
-  RCLCPP_INFO_STREAM(node->get_logger(), "Mujoco rendering has been successfully initialized !");
-
   // run main loop, target real-time simulation and 60 fps rendering
-  while (rclcpp::ok() && !rendering->is_close_flag_raised())
+  while (rclcpp::ok())
   {
     // advance interactive simulation for 1/60 sec
     //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
@@ -84,10 +78,7 @@ int main(int argc, const char **argv)
     {
       mujoco_control.update();
     }
-    rendering->update();
   }
-
-  rendering->close();
 
   // free MuJoCo model and data
   mj_deleteData(mujoco_data);
