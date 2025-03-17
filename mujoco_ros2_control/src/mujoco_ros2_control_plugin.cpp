@@ -147,32 +147,32 @@ void MujocoRos2ControlPlugin::compute(
   int  // plugin_id
 )
 {
-  // cm_executor_->spin_some();
+  mj_model_ = mj_model;
+  mj_data_ = mj_data;
+  RCLCPP_INFO(node_->get_logger(), "HERE");
 
-  // mj_model_ = mj_model;
-  // mj_data_ = mj_data;
+  // Get the simulation time and period
+  auto sim_time = mj_data_->time;
+  int sim_time_sec = static_cast<int>(sim_time);
+  int sim_time_nanosec = static_cast<int>((sim_time - sim_time_sec) * 1000000000);
 
-  // // Get the simulation time and period
-  // auto sim_time = mj_data_->time;
-  // int sim_time_sec = static_cast<int>(sim_time);
-  // int sim_time_nanosec = static_cast<int>((sim_time - sim_time_sec) * 1000000000);
+  rclcpp::Time sim_time_ros(sim_time_sec, sim_time_nanosec, RCL_ROS_TIME);
+  rclcpp::Duration sim_period = sim_time_ros - last_update_sim_time_ros_;
 
-  // rclcpp::Time sim_time_ros(sim_time_sec, sim_time_nanosec, RCL_ROS_TIME);
-  // rclcpp::Duration sim_period = sim_time_ros - last_update_sim_time_ros_;
+  using namespace std::chrono_literals;
+  rclcpp::Duration control_period = rclcpp::Duration(2ms);  // TODO: Fix! control_period should not be hardcoded
 
-  // using namespace std::chrono_literals;
-  // rclcpp::Duration control_period = rclcpp::Duration(2ms);  // TODO: Fix! control_period should
-  // not be hardcoded
+  //   if (sim_period >= control_period)
+  //   {
+  controller_manager_->read(sim_time_ros, sim_period);
+  controller_manager_->update(sim_time_ros, sim_period);
+  last_update_sim_time_ros_ = sim_time_ros;
+  //   }
 
-  // if (sim_period >= control_period)
-  // {
-  //    controller_manager_->read(sim_time_ros, sim_period);
-  //    controller_manager_->update(sim_time_ros, sim_period);
-  //    last_update_sim_time_ros_ = sim_time_ros;
-  // }
+  // use same time as for read and update call - this is how it is done in ros2_control_node
+  controller_manager_->write(sim_time_ros, sim_period);
 
-  // // use same time as for read and update call - this is how it is done in ros2_control_node
-  // controller_manager_->write(sim_time_ros, sim_period);
+  RCLCPP_INFO(node_->get_logger(), "HERE");
 
   // mj_step2(mj_model_, mj_data_);
 }
@@ -301,31 +301,42 @@ bool MujocoRos2ControlPlugin::initialise()
   // Create the controller manager
   RCLCPP_INFO(node_->get_logger(), "Loading controller_manager");
   cm_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
-  controller_manager_ = std::make_shared<controller_manager::ControllerManager>(
-    std::move(resource_manager), cm_executor_, "controller_manager", node_->get_namespace());
-  controller_manager_->set_parameter(
-    rclcpp::Parameter("use_sim_time", rclcpp::ParameterValue(true)));
 
   // Loading ros controllers params
-  const std::string yaml_filepath =
-    ament_index_cpp::get_package_share_directory("ur_hiro_bringup") + "/config/ur_controllers.yaml";
-  rcutils_allocator_t allocator = rcutils_get_default_allocator();
-  rcl_params_t *params_st = rcl_yaml_node_struct_init(allocator);
-  if (rcl_parse_yaml_file(yaml_filepath.c_str(), params_st) == false)
-  {
-    RCLCPP_ERROR_STREAM(
-      node_->get_logger(), "Cannot parse ros controllers param file located at: " << yaml_filepath);
-    return false;
-  }
+  const std::string yaml_filepath = ament_index_cpp::get_package_share_directory("ur_hiro_bringup") + "/config/ur_controllers.yaml";
+  rclcpp::ParameterMap param_map = rclcpp::parameter_map_from_yaml_file(yaml_filepath);
 
-  rclcpp::ParameterMap parameters_map = rclcpp::parameter_map_from(params_st);
-  for (auto const &x : parameters_map)
-  {
-    controller_manager_->set_parameters(x.second);
-  }
-  rcl_yaml_node_struct_fini(params_st);  // cleanup after use.
+  rclcpp::NodeOptions cm_node_options = controller_manager::get_cm_node_options();
 
-  // cm_executor_->add_node(controller_manager_);
+  std::string controller_manager_node_name = "controller_manager"; // TODO: parametrise?
+
+  if (param_map.find(controller_manager_node_name) != param_map.end())
+    cm_node_options.parameter_overrides(param_map.at(controller_manager_node_name));
+
+  controller_manager_ = std::make_shared<controller_manager::ControllerManager>(
+    std::move(resource_manager), cm_executor_, controller_manager_node_name, node_->get_namespace(), cm_node_options);
+
+
+  // Example: Retrieve and print a parameter
+  int update_rate;
+  if (controller_manager_->get_parameter("controller_manager.update_rate", update_rate)) 
+  {
+    RCLCPP_INFO(controller_manager_->get_logger(), "Update rate: %d", update_rate);
+    RCLCPP_INFO(controller_manager_->get_logger(), "Update rate: %d", update_rate);
+    RCLCPP_INFO(controller_manager_->get_logger(), "Update rate: %d", update_rate);
+    RCLCPP_INFO(controller_manager_->get_logger(), "Update rate: %d", update_rate);
+  }
+  else
+  {
+    RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to load parameters!");
+    RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to load parameters!");
+    RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to load parameters!");
+    RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to load parameters!");
+    RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to load parameters!");
+  }
+  
+  controller_manager_->set_parameter(rclcpp::Parameter("use_sim_time", rclcpp::ParameterValue(true)));
+  cm_executor_->add_node(controller_manager_);
 
   auto spin = [this]() { cm_executor_->spin(); };
   cm_thread_ = std::thread(spin);

@@ -59,22 +59,30 @@ endif()
 
 
 # Building the ros2_control hardware interface as a plugin
-add_library(mujoco_system SHARED src/mujoco_system.cpp)
-ament_target_dependencies(mujoco_system ${THIS_PACKAGE_DEPENDS})
-target_link_libraries(mujoco_system ${MUJOCO_LIB})
-target_include_directories(mujoco_system
+set(HW_IF_INCLUDE_DEPENDS
+  pluginlib
+  joint_limits
+  rcpputils
+  hardware_interface
+  urdf
+)
+
+add_library(mujoco_system_plugins SHARED src/mujoco_system.cpp)
+ament_target_dependencies(mujoco_system_plugins ${HW_IF_INCLUDE_DEPENDS})
+target_link_libraries(mujoco_system_plugins ${MUJOCO_LIB})
+target_include_directories(mujoco_system_plugins
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
     ${MUJOCO_INCLUDE_DIR}
     ${EIGEN3_INCLUDE_DIR})
 
-install(TARGETS
-  mujoco_system
+install(TARGETS mujoco_system_plugins
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+pluginlib_export_plugin_description_file(mujoco_ros2_control mujoco_system_plugins.xml)
 
 # add_executable(mujoco_ros2_control src/mujoco_ros2_control_node.cpp src/mujoco_ros2_control.cpp src/mujoco_ros2_control_plugin.cpp)
 add_library(mujoco_ros2_control SHARED src/mujoco_ros2_control_plugin.cpp)
@@ -91,25 +99,29 @@ install(TARGETS
   mujoco_ros2_control
   DESTINATION lib/${PROJECT_NAME})
 
-pluginlib_export_plugin_description_file(mujoco_ros2_control mujoco_system_plugins.xml)
-
 # Exporting mujoco ros2 controller as a plugin
 add_library(mujoco_plugins SHARED src/Plugin.cpp)
 target_include_directories(mujoco_plugins PRIVATE ${MUJOCO_INCLUDE_DIR})
 target_link_libraries(mujoco_plugins PUBLIC mujoco_ros2_control)
 
 install(
-  TARGETS mujoco_ros2_control mujoco_plugins
+  TARGETS mujoco_plugins
   EXPORT "${TARGETS_EXPORT_NAME}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
-add_custom_command(
-  TARGET mujoco_ros2_control
-  POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_ros2_control>
-          ${MUJOCO_BIN_DIR}/mujoco_plugin)
+# add_custom_command(
+#    TARGET mujoco_system
+#    POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_system>
+#             ${MUJOCO_BIN_DIR}/mujoco_plugin)
+
+# add_custom_command(
+#   TARGET mujoco_ros2_control
+#   POST_BUILD
+#   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_ros2_control>
+#           ${MUJOCO_BIN_DIR}/mujoco_plugin)
 
 add_custom_command(
   TARGET mujoco_plugins
