@@ -38,11 +38,16 @@ public:
       \param d data
       \param plugin_id plugin ID
    */
-  static MujocoRos2ControlPlugin *Create(const mjModel *m, mjData *d, int plugin_id);
+  static MujocoRos2ControlPlugin* Create(const mjModel *m, mjData *d, int plugin_id);
 
 public:
   /** \brief Copy constructor. */
   MujocoRos2ControlPlugin(MujocoRos2ControlPlugin &&) = default;
+
+  ~MujocoRos2ControlPlugin()
+  {
+    RCLCPP_INFO(controller_manager_->get_logger(), "Called MujocoRos2ControlPlugin destructor");
+  }
 
   /** \brief Reset.
    \param m model
@@ -62,13 +67,13 @@ public:
 
 protected:
   /** \brief Constructor.
-      \param m model
-      \param d data
-      \param actuator_id actuator ID
-      \param topic_name topic name
+    \param m model
+    \param d data
+    \param actuator_id actuator ID
+    \param topic_name topic name
   */
   MujocoRos2ControlPlugin(const mjModel *mj_model, mjData *mj_data)
-      : mj_model_(mj_model), mj_data_(mj_data), last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
+    : mj_model_(mj_model), mj_data_(mj_data), last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
   {
   }
 
@@ -78,11 +83,11 @@ protected:
   const mjModel *mj_model_;
   mjData *mj_data_;
   std::thread cm_thread_;
-  // rclcpp::Duration control_period_; // TODO: useful?
 
   // ROS variables
-  rclcpp::Node::SharedPtr node_;
+  // rclcpp::Node::SharedPtr node_;
   rclcpp::executors::MultiThreadedExecutor::SharedPtr cm_executor_;
+  rclcpp::Duration control_period_ = rclcpp::Duration(1, 0);
   rclcpp::Time last_update_sim_time_ros_;
   std::shared_ptr<pluginlib::ClassLoader<MujocoSystemInterface>> robot_hw_sim_loader_;
   std::shared_ptr<controller_manager::ControllerManager> controller_manager_;

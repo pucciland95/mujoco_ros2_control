@@ -38,12 +38,12 @@ hardware_interface::return_type MujocoSystem::read(
   const rclcpp::Time & /* time */, const rclcpp::Duration & /* period */)
 {
   // Joint states
-  for (auto &joint_state : joint_states_)
-  {
-    joint_state.position = mj_data_->qpos[joint_state.mj_pos_adr];
-    joint_state.velocity = mj_data_->qvel[joint_state.mj_vel_adr];
-    joint_state.effort = mj_data_->qfrc_applied[joint_state.mj_vel_adr];
-  }
+  // for (auto &joint_state : joint_states_)
+  // {
+  //   joint_state.position = mj_data_->qpos[joint_state.mj_pos_adr];
+  //   joint_state.velocity = mj_data_->qvel[joint_state.mj_vel_adr];
+  //   joint_state.effort = mj_data_->qfrc_applied[joint_state.mj_vel_adr];
+  // }
 
   // IMU Sensor data
   // TODO(sangteak601): For now all sensors are assumed to be FTS
@@ -70,30 +70,30 @@ hardware_interface::return_type MujocoSystem::write(
   const rclcpp::Time & /* time */, const rclcpp::Duration & /*period*/)
 {
   // Joint states
-  for (auto &joint_state : joint_states_)
-  {
-    if (joint_state.is_position_control_enabled)
-      mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position_command;
+  // for (auto &joint_state : joint_states_)
+  // {
+  //   if (joint_state.is_position_control_enabled)
+  //     mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position_command;
 
-    if (joint_state.is_velocity_control_enabled)
-      mj_data_->qvel[joint_state.mj_vel_adr] = joint_state.velocity_command;
+  //   if (joint_state.is_velocity_control_enabled)
+  //     mj_data_->qvel[joint_state.mj_vel_adr] = joint_state.velocity_command;
 
-    if (joint_state.is_effort_control_enabled)
-    {
-      double min_eff, max_eff;
-      min_eff = joint_state.joint_limits.has_effort_limits
-                  ? -1 * joint_state.joint_limits.max_effort
-                  : std::numeric_limits<double>::lowest();
-      min_eff = std::max(min_eff, joint_state.min_effort_command);
+  //   if (joint_state.is_effort_control_enabled)
+  //   {
+  //     double min_eff, max_eff;
+  //     min_eff = joint_state.joint_limits.has_effort_limits
+  //                 ? -1 * joint_state.joint_limits.max_effort
+  //                 : std::numeric_limits<double>::lowest();
+  //     min_eff = std::max(min_eff, joint_state.min_effort_command);
 
-      max_eff = joint_state.joint_limits.has_effort_limits ? joint_state.joint_limits.max_effort
-                                                           : std::numeric_limits<double>::max();
-      max_eff = std::min(max_eff, joint_state.max_effort_command);
+  //     max_eff = joint_state.joint_limits.has_effort_limits ? joint_state.joint_limits.max_effort
+  //                                                          : std::numeric_limits<double>::max();
+  //     max_eff = std::min(max_eff, joint_state.max_effort_command);
 
-      mj_data_->qfrc_applied[joint_state.mj_vel_adr] =
-        clamp(joint_state.effort_command, min_eff, max_eff);
-    }
-  }
+  //     mj_data_->qfrc_applied[joint_state.mj_vel_adr] =
+  //       clamp(joint_state.effort_command, min_eff, max_eff);
+  //   }
+  // }
 
   return hardware_interface::return_type::OK;
 }
@@ -102,15 +102,15 @@ bool MujocoSystem::init_sim(
   const mjModel *mujoco_model, mjData *mujoco_data, const urdf::Model &urdf_model,
   const hardware_interface::HardwareInfo &hardware_info)
 {
-  mj_model_ = mujoco_model;
-  mj_data_ = mujoco_data;
+  // mj_model_ = mujoco_model;
+  // mj_data_ = mujoco_data;
 
   logger_ = rclcpp::get_logger("mujoco_system");
 
-  register_joints(urdf_model, hardware_info);
+  // register_joints(urdf_model, hardware_info);
   // register_sensors(urdf_model, hardware_info);
 
-  set_initial_pose();
+  // set_initial_pose();
   return true;
 }
 
