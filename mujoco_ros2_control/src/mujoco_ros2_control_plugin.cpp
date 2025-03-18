@@ -45,11 +45,14 @@ void MujocoRos2ControlPlugin::RegisterPlugin()
     return 0;
   };
 
-  // plugin.destroy = +[](mjData *d, int plugin_id)
-  // {
-  //   delete reinterpret_cast<MujocoRos2ControlPlugin *>(d->plugin_data[plugin_id]);
-  //   d->plugin_data[plugin_id] = 0;
-  // };
+  plugin.destroy = +[](mjData *d, int plugin_id)
+  {
+    auto plugin_instance = reinterpret_cast<MujocoRos2ControlPlugin *>(d->plugin_data[plugin_id]);
+    plugin_instance->destroy();
+
+    delete plugin_instance;
+    d->plugin_data[plugin_id] = 0;
+  };
 
   plugin.reset = +[](
                     const mjModel *m, double *,  // plugin_state
@@ -80,6 +83,19 @@ MujocoRos2ControlPlugin* MujocoRos2ControlPlugin::Create(
 }
 
 // ------------------------------------------------------ //
+
+void MujocoRos2ControlPlugin::destroy()
+{
+  RCLCPP_INFO(controller_manager_->get_logger(), "Called destroy function");
+
+  rclcpp::shutdown();
+
+  if(cm_thread_.joinable())
+    cm_thread_.join();
+
+  // TODO
+  return;
+}
 
 void MujocoRos2ControlPlugin::reset(
   const mjModel *,  // m
