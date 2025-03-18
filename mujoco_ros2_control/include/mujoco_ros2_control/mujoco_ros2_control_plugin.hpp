@@ -79,19 +79,16 @@ protected:
     \param topic_name topic name
   */
   MujocoRos2ControlPlugin(const mjModel *mj_model, mjData *mj_data)
-    : mj_model_(mj_model), mj_data_(mj_data), last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
+    : last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
   {
   }
 
-  bool initialise();
+  bool initialise(const mjModel *mj_model, mjData *mj_data);
 
 protected:
-  const mjModel *mj_model_;
-  mjData *mj_data_;
   std::thread cm_thread_;
 
   // ROS variables
-  // rclcpp::Node::SharedPtr node_;
   rclcpp::executors::MultiThreadedExecutor::SharedPtr cm_executor_;
   rclcpp::Duration control_period_ = rclcpp::Duration(1, 0);
   rclcpp::Time last_update_sim_time_ros_;

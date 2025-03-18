@@ -131,6 +131,7 @@ private:
   mjData *mj_data_;
 
   rclcpp::Logger logger_;  // TODO(sangteak601): delete?
+  bool initial_pose_set_ = false;
 };
 }  // namespace mujoco_ros2_control
 

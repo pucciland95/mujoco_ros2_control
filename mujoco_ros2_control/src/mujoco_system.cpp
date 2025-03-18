@@ -69,6 +69,12 @@ hardware_interface::return_type MujocoSystem::read(
 hardware_interface::return_type MujocoSystem::write(
   const rclcpp::Time & /* time */, const rclcpp::Duration & /*period*/)
 {
+   if(initial_pose_set_ == false)
+   {
+      set_initial_pose();
+      initial_pose_set_ = true;
+   }
+
   // Joint states
   for (auto &joint_state : joint_states_)
   {
@@ -110,7 +116,6 @@ bool MujocoSystem::init_sim(
   register_joints(urdf_model, hardware_info);
   // register_sensors(urdf_model, hardware_info);
 
-  // set_initial_pose();
   return true;
 }
 
@@ -352,6 +357,7 @@ void MujocoSystem::set_initial_pose()
   for (auto &joint_state : joint_states_)
   {
     mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position;
+    mj_data_->qvel[joint_state.mj_vel_adr] = 0.0;
   }
 }
 

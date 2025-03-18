@@ -39,7 +39,7 @@ void MujocoRos2ControlPlugin::RegisterPlugin()
     {
       return -1;
     }
-    if (plugin_instance->initialise() == false) return -1;
+    if (plugin_instance->initialise(m, d) == false) return -1;
 
     d->plugin_data[plugin_id] = reinterpret_cast<uintptr_t>(plugin_instance);
     return 0;
@@ -118,7 +118,7 @@ void MujocoRos2ControlPlugin::compute(
   // mj_data_ = mj_data;
 
   // Get the simulation time and period
-  auto sim_time = mj_data_->time;
+  auto sim_time = mj_data->time;
   int sim_time_sec = static_cast<int>(sim_time);
   int sim_time_nanosec = static_cast<int>((sim_time - sim_time_sec) * 1000000000);
 
@@ -174,7 +174,7 @@ std::string MujocoRos2ControlPlugin::get_robot_description()
   return robot_description;
 }
 
-bool MujocoRos2ControlPlugin::initialise()
+bool MujocoRos2ControlPlugin::initialise(const mjModel *mj_model, mjData *mj_data)
 {
   int argc = 0;
   char **argv = nullptr;
@@ -240,7 +240,7 @@ bool MujocoRos2ControlPlugin::initialise()
 
     urdf::Model urdf_model;
     urdf_model.initString(urdf_string);
-    if (!mujoco_system->init_sim(mj_model_, mj_data_, urdf_model, hardware))
+    if (!mujoco_system->init_sim(mj_model, mj_data, urdf_model, hardware))
     {
       RCLCPP_FATAL(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Could not initialize robot simulation interface");
       return false;
