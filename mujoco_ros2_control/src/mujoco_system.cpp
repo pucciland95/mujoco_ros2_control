@@ -82,7 +82,7 @@ hardware_interface::return_type MujocoSystem::write(const rclcpp::Time& /* time 
          mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position_command;
 
       if (joint_state.is_velocity_control_enabled)
-         mj_data_->ctrl[joint_state.mj_vel_adr] = mj_data_->ctrl[joint_state.mj_vel_adr] + joint_state.velocity_command * period.seconds();
+         mj_data_->ctrl[joint_state.mj_vel_adr] = joint_state.velocity_command;
 
       if (joint_state.is_effort_control_enabled)
       {
@@ -129,9 +129,6 @@ void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware
          continue;
       }
 
-      std::string act_name = acturator_names[joint_index];
-      int mujoco_actuator_id = mj_name2id(mj_model_, mjtObj::mjOBJ_ACTUATOR, act_name.c_str());
-
       // if(mujoco_actuator_id = -1)
       // {
       //    RCLCPP_ERROR_STREAM(logger_, "Failed to find actuator in mujoco model, actuator name: " << act_name);
@@ -144,7 +141,6 @@ void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware
       joint_state.mj_joint_type = mj_model_->jnt_type[mujoco_joint_id];
       joint_state.mj_pos_adr = mj_model_->jnt_qposadr[mujoco_joint_id];
       joint_state.mj_vel_adr = mj_model_->jnt_dofadr[mujoco_joint_id];
-      joint_state.mj_act_adr = mj_model_->actuator_actadr[mujoco_actuator_id];
 
       joint_states_.at(joint_index) = joint_state;
       JointState& last_joint_state = joint_states_.at(joint_index);
@@ -247,7 +243,7 @@ void MujocoSystem::set_initial_pose()
 {
    for (auto& joint_state : joint_states_)
    {
-      mj_data_->ctrl[joint_state.mj_vel_adr] = joint_state.position;
+      // mj_data_->ctrl[joint_state.mj_vel_adr] = joint_state.position;
       mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position;
       mj_data_->qvel[joint_state.mj_vel_adr] = 0.0;
    }

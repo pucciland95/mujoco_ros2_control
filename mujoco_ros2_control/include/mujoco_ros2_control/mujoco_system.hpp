@@ -76,7 +76,6 @@ public:
     int mj_joint_type;
     int mj_pos_adr;
     int mj_vel_adr;
-    int mj_act_adr;
   };
 
   template <typename T>
