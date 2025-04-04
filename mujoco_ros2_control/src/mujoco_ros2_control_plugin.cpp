@@ -13,10 +13,8 @@ void MujocoRos2ControlPlugin::RegisterPlugin()
    // Allow plugins to be placed on either the body element or the actuator element
    plugin.capabilityflags |= mjPLUGIN_PASSIVE;
 
-   const char* attributes[] = { "act_0", "act_1", "act_2", "act_3", "act_4", "act_5" };
-
-   plugin.nattribute = sizeof(attributes) / sizeof(attributes[0]);
-   plugin.attributes = attributes;
+   plugin.nattribute = 0;
+   plugin.attributes = nullptr;
 
    plugin.nstate = +[](const mjModel*,  // m
                        int              // plugin_id
@@ -67,25 +65,10 @@ void MujocoRos2ControlPlugin::RegisterPlugin()
 
 MujocoRos2ControlPlugin* MujocoRos2ControlPlugin::Create(const mjModel* mj_model, mjData* mj_data, int plugin_id)
 {
-   // Getting actuators ids
-   std::vector<std::string> actuator_names;
-   for (int idx = 0; idx < 6; idx++)
-   {
-      std::string param_name = "act_" + std::to_string(idx);
-      const char* actuator_name_char = mj_getPluginConfig(mj_model, plugin_id, param_name.c_str());
-      if (strlen(actuator_name_char) == 0)
-      {
-         std::string error_string = "[mujoco_ros_control] actuator: " + param_name + " is missing.";
-         mju_error(error_string.c_str());
-         return nullptr;
-      }
-
-      actuator_names.push_back(actuator_name_char);
-   }
 
    std::cout << "[MujocoRos2ControlPlugin] Create." << std::endl;
 
-   return new MujocoRos2ControlPlugin(actuator_names);
+   return new MujocoRos2ControlPlugin();
 }
 
 // ------------------------------------------------------ //
@@ -187,7 +170,7 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
 
       urdf::Model urdf_model;
       urdf_model.initString(urdf_string);
-      if (!mujoco_system->init_sim(mj_model, mj_data, urdf_model, hardware, actuator_names_))
+      if (!mujoco_system->init_sim(mj_model, mj_data, urdf_model, hardware))
       {
          RCLCPP_FATAL(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Could not initialize robot simulation interface");
          return false;
@@ -203,23 +186,7 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    RCLCPP_INFO(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Loading controller_manager");
    cm_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
 
-   // Loading ros controllers params
-   const std::string yaml_filepath = ament_index_cpp::get_package_share_directory("ur_hiro_bringup") + "/config/ur_controllers.yaml";
-   rclcpp::ParameterMap param_map = rclcpp::parameter_map_from_yaml_file(yaml_filepath);
-
    controller_manager_ = std::make_shared<controller_manager::ControllerManager>(std::move(resource_manager), cm_executor_, "controller_manager", "");
-
-   // Loading controller_manager params
-   for (auto& [k, values] : param_map)
-   {
-      if (k == "/controller_manager")
-      {
-         for (rclcpp::Parameter& each_param : values)
-            controller_manager_->declare_parameter(each_param.get_name(), each_param.get_type());
-         controller_manager_->set_parameters(values);
-      }
-   }
-
    controller_manager_->set_parameter(rclcpp::Parameter("use_sim_time", rclcpp::ParameterValue(true)));
    cm_executor_->add_node(controller_manager_);
 
@@ -264,9 +231,9 @@ void MujocoRos2ControlPlugin::compute(const mjModel* mj_model, mjData* mj_data,
 
 void MujocoRos2ControlPlugin::destroy()
 {
-   RCLCPP_INFO(controller_manager_->get_logger(), "Called destroy function");
-
-   rclcpp::shutdown();
+   // rclcpp::shutdown();
+   cm_executor_->remove_node(controller_manager_);
+   cm_executor_->cancel();
 
    if (cm_thread_.joinable())
       cm_thread_.join();

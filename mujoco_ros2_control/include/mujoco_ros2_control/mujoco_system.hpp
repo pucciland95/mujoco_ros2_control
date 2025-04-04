@@ -52,7 +52,7 @@ public:
 
   bool init_sim(
     const mjModel *mujoco_model, mjData *mujoco_data, const urdf::Model &urdf_model,
-    const hardware_interface::HardwareInfo &hardware_info, std::vector<std::string> acturator_names) override;
+    const hardware_interface::HardwareInfo &hardware_info) override;
 
   struct JointState
   {
@@ -88,7 +88,7 @@ public:
 
 private:
   void register_joints(
-    const urdf::Model &urdf_model, const hardware_interface::HardwareInfo &hardware_info, std::vector<std::string> acturator_name);
+    const urdf::Model &urdf_model, const hardware_interface::HardwareInfo &hardware_info);
   void set_initial_pose();
   void get_joint_limits(
     urdf::JointConstSharedPtr urdf_joint, joint_limits::JointLimits &joint_limits);

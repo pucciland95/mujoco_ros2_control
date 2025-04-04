@@ -100,12 +100,12 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME})
 
 # Exporting mujoco ros2 controller as a plugin
-add_library(mujoco_plugins SHARED src/Plugin.cpp)
-target_include_directories(mujoco_plugins PRIVATE ${MUJOCO_INCLUDE_DIR})
-target_link_libraries(mujoco_plugins PUBLIC mujoco_ros2_control)
+add_library(mujoco_ros_control_plugin SHARED src/Plugin.cpp)
+target_include_directories(mujoco_ros_control_plugin PRIVATE ${MUJOCO_INCLUDE_DIR})
+target_link_libraries(mujoco_ros_control_plugin PUBLIC mujoco_ros2_control)
 
 install(
-  TARGETS mujoco_plugins
+  TARGETS mujoco_ros_control_plugin
   EXPORT "${TARGETS_EXPORT_NAME}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
@@ -124,9 +124,9 @@ install(
 #           ${MUJOCO_BIN_DIR}/mujoco_plugin)
 
 add_custom_command(
-  TARGET mujoco_plugins
+  TARGET mujoco_ros_control_plugin
   POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_plugins>
+  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_ros_control_plugin>
           ${MUJOCO_BIN_DIR}/mujoco_plugin)
 
 ament_package()

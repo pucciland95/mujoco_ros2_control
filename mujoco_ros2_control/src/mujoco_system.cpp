@@ -100,13 +100,12 @@ hardware_interface::return_type MujocoSystem::write(const rclcpp::Time& /* time 
    return hardware_interface::return_type::OK;
 }
 
-bool MujocoSystem::init_sim(const mjModel* mujoco_model, mjData* mujoco_data, const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info,
-                            std::vector<std::string> acturator_names)
+bool MujocoSystem::init_sim(const mjModel* mujoco_model, mjData* mujoco_data, const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info)
 {
    mj_model_ = mujoco_model;
    mj_data_ = mujoco_data;
 
-   register_joints(urdf_model, hardware_info, acturator_names);
+   register_joints(urdf_model, hardware_info);
    // register_sensors(urdf_model, hardware_info);
 
    // set_initial_pose();
@@ -114,7 +113,7 @@ bool MujocoSystem::init_sim(const mjModel* mujoco_model, mjData* mujoco_data, co
    return true;
 }
 
-void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info, std::vector<std::string> acturator_names)
+void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info)
 {
    joint_states_.resize(hardware_info.joints.size());
 

@@ -2,7 +2,6 @@
 #define MUJOCO_ROS2_CONTROL_PLUGIN_HPP_
 
 // ROS2
-#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include "pluginlib/class_loader.hpp"
@@ -50,7 +49,7 @@ class MujocoRos2ControlPlugin
      \param actuator_id actuator ID
      \param topic_name topic name
    */
-   MujocoRos2ControlPlugin(std::vector<std::string> actuator_names) : last_update_sim_time_ros_(0, 0, RCL_ROS_TIME), actuator_names_(actuator_names)
+   MujocoRos2ControlPlugin() : last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
    {
    }
 
@@ -94,7 +93,6 @@ class MujocoRos2ControlPlugin
 
    // Non ROS variables
    std::thread cm_thread_;
-   std::vector<std::string> actuator_names_;
 };
 
 }  // namespace mujoco_ros2_control
