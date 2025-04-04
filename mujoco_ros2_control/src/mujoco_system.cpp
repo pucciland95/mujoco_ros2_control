@@ -46,24 +46,6 @@ hardware_interface::return_type MujocoSystem::read(const rclcpp::Time& /* time *
       joint_state.effort = mj_data_->qfrc_applied[joint_state.mj_vel_adr];
    }
 
-   // IMU Sensor data
-   // TODO(sangteak601): For now all sensors are assumed to be FTS
-   // for (auto& data : imu_sensor_data_)
-   // {
-   // }
-
-   // FT Sensor data
-   // for (auto& data : ft_sensor_data_)
-   // {
-   //    data.force.data.x() = -mj_data_->sensordata[data.force.mj_sensor_index];
-   //    data.force.data.y() = -mj_data_->sensordata[data.force.mj_sensor_index + 1];
-   //    data.force.data.z() = -mj_data_->sensordata[data.force.mj_sensor_index + 2];
-
-   //    data.torque.data.x() = -mj_data_->sensordata[data.torque.mj_sensor_index];
-   //    data.torque.data.y() = -mj_data_->sensordata[data.torque.mj_sensor_index + 1];
-   //    data.torque.data.z() = -mj_data_->sensordata[data.torque.mj_sensor_index + 2];
-   // }
-
    return hardware_interface::return_type::OK;
 }
 
@@ -164,11 +146,13 @@ void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware
          {
             state_interfaces_.emplace_back(joint.name, hardware_interface::HW_IF_POSITION, &last_joint_state.position);
             last_joint_state.position = get_initial_value(state_info);
+            last_joint_state.initial_position = last_joint_state.position;
          }
          else if (state_info.name == hardware_interface::HW_IF_VELOCITY)
          {
             state_interfaces_.emplace_back(joint.name, hardware_interface::HW_IF_VELOCITY, &last_joint_state.velocity);
             last_joint_state.velocity = get_initial_value(state_info);
+            last_joint_state.initial_velocity = last_joint_state.velocity;
          }
          else if (state_info.name == hardware_interface::HW_IF_EFFORT)
          {
@@ -243,8 +227,8 @@ void MujocoSystem::set_initial_pose()
    for (auto& joint_state : joint_states_)
    {
       // mj_data_->ctrl[joint_state.mj_vel_adr] = joint_state.position;
-      mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position;
-      mj_data_->qvel[joint_state.mj_vel_adr] = 0.0;
+      mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.initial_position;
+      mj_data_->qvel[joint_state.mj_vel_adr] = joint_state.initial_velocity;
    }
 }
 

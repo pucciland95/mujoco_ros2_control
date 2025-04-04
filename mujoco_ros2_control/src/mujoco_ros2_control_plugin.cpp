@@ -118,13 +118,13 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    }
 
    // Getting robot description
-   std::string urdf_string = get_robot_description();
+   robot_description_ = get_robot_description();
 
    // setup actuators and mechanism control node.
    std::vector<hardware_interface::HardwareInfo> control_hardware_info;
    try
    {
-      control_hardware_info = hardware_interface::parse_control_resources_from_urdf(urdf_string);
+      control_hardware_info = hardware_interface::parse_control_resources_from_urdf(robot_description_);
    }
    catch (const std::runtime_error& ex)
    {
@@ -147,7 +147,7 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    std::unique_ptr<hardware_interface::ResourceManager> resource_manager = std::make_unique<hardware_interface::ResourceManager>();
    try
    {
-      resource_manager->load_urdf(urdf_string, false, false);
+      resource_manager->load_urdf(robot_description_, false, false);
    }
    catch (...)
    {
@@ -169,13 +169,14 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
       }
 
       urdf::Model urdf_model;
-      urdf_model.initString(urdf_string);
+      urdf_model.initString(robot_description_);
       if (!mujoco_system->init_sim(mj_model, mj_data, urdf_model, hardware))
       {
          RCLCPP_FATAL(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Could not initialize robot simulation interface");
          return false;
       }
 
+      p_mujoco_system_ = mujoco_system.get();
       resource_manager->import_component(std::move(mujoco_system), hardware);
 
       rclcpp_lifecycle::State state(lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, hardware_interface::lifecycle_state_names::ACTIVE);
@@ -219,13 +220,14 @@ void MujocoRos2ControlPlugin::compute(const mjModel* mj_model, mjData* mj_data,
 
    if (sim_period >= control_period_)
    {
-      controller_manager_->read(sim_time_ros, sim_period);
-      controller_manager_->update(sim_time_ros, sim_period);
+      time_since_sim_started += sim_period;
+      controller_manager_->read(time_since_sim_started, sim_period);
+      controller_manager_->update(time_since_sim_started, sim_period);
       last_update_sim_time_ros_ = sim_time_ros;
    }
 
    // use same time as for read and update call - this is how it is done in ros2_control_node
-   controller_manager_->write(sim_time_ros, sim_period);
+   controller_manager_->write(time_since_sim_started, sim_period);
    return;
 }
 
@@ -242,14 +244,33 @@ void MujocoRos2ControlPlugin::destroy()
    return;
 }
 
-void MujocoRos2ControlPlugin::reset(const mjModel*,  // m
+void MujocoRos2ControlPlugin::reset(const mjModel* , // m,
                                     int              // plugin_id
 )
 {
-   // free MuJoCo model and data
-   // mj_deleteData(mj_data_);
+   // std::vector<controller_manager::ControllerSpec> controllers = controller_manager_->get_loaded_controllers();
 
-   // TODO
+   // Deactivating controllers
+   // for (auto& each_controller : controllers)
+   // {
+   //    const rclcpp_lifecycle::State controller_lyfe_cycle = each_controller.c->get_state();
+   //    each_controller.c->on_deactivate(controller_lyfe_cycle);
+   //    controller_interface::ControllerInterfaceBaseSharedPtr temp = each_controller.c;
+
+   //    each_controller.c->on_activate(controller_lyfe_cycle);
+   // }
+
+   // controller_manager_->init_resource_manager(robot_description_);
+   p_mujoco_system_->reset_sim();
+   last_update_sim_time_ros_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
+
+   // Activating controllers
+   // for (auto& each_controller : controllers)
+   // {
+   //    const rclcpp_lifecycle::State controller_lyfe_cycle = each_controller.c->get_state();
+   //    each_controller.c->on_activate(controller_lyfe_cycle);
+   // }
+
    return;
 }
 

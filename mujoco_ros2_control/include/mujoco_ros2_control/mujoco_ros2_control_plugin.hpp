@@ -49,7 +49,7 @@ class MujocoRos2ControlPlugin
      \param actuator_id actuator ID
      \param topic_name topic name
    */
-   MujocoRos2ControlPlugin() : last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
+   MujocoRos2ControlPlugin() : time_since_sim_started(0, 0, RCL_ROS_TIME), last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
    {
    }
 
@@ -87,9 +87,12 @@ class MujocoRos2ControlPlugin
    // ROS variables
    rclcpp::executors::MultiThreadedExecutor::SharedPtr cm_executor_;
    rclcpp::Duration control_period_ = rclcpp::Duration(1, 0);
+   rclcpp::Time time_since_sim_started;
    rclcpp::Time last_update_sim_time_ros_;
    std::shared_ptr<pluginlib::ClassLoader<MujocoSystemInterface>> robot_hw_sim_loader_;
    std::shared_ptr<controller_manager::ControllerManager> controller_manager_;
+   std::string robot_description_;
+   mujoco_ros2_control::MujocoSystemInterface* p_mujoco_system_;
 
    // Non ROS variables
    std::thread cm_thread_;

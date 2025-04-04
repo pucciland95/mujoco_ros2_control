@@ -36,6 +36,7 @@ public:
   virtual bool init_sim(
     const mjModel *mujoco_model, mjData *mujoco_data, const urdf::Model &urdf_model,
     const hardware_interface::HardwareInfo &hardware_info) = 0;
+  virtual bool reset_sim() = 0;
 
 protected:
 };

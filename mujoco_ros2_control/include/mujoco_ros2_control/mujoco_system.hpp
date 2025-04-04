@@ -32,11 +32,6 @@
 
 namespace mujoco_ros2_control
 {
-// constexpr char PARAM_KP[]{ "_kp" };
-// constexpr char PARAM_KI[]{ "_ki" };
-// constexpr char PARAM_KD[]{ "_kd" };
-// constexpr char PARAM_I_MAX[]{ "_i_max" };
-// constexpr char PARAM_I_MIN[]{ "_i_min" };
 
 class MujocoSystem : public MujocoSystemInterface
 {
@@ -54,10 +49,14 @@ public:
     const mjModel *mujoco_model, mjData *mujoco_data, const urdf::Model &urdf_model,
     const hardware_interface::HardwareInfo &hardware_info) override;
 
+  bool reset_sim() override {set_initial_pose(); return true;}
+
   struct JointState
   {
     std::string name;
+    double initial_position;
     double position;
+    double initial_velocity;
     double velocity;
     double effort;
     double position_command;
@@ -76,14 +75,6 @@ public:
     int mj_joint_type;
     int mj_pos_adr;
     int mj_vel_adr;
-  };
-
-  template <typename T>
-  struct SensorData
-  {
-    std::string name;
-    T data;
-    int mj_sensor_index;
   };
 
 private:
