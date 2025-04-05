@@ -289,7 +289,12 @@ void MujocoRos2ControlPlugin::reset(const mjModel* , // m,
    std::thread reset_controller_thread = std::thread(reset_controllers);
 
    while(reset_thread_finished != true)
+   {
       controller_manager_->update(time_since_sim_started, sim_period);
+
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(100ms);
+   }
 
    if(reset_controller_thread.joinable())
       reset_controller_thread.join();
