@@ -276,14 +276,12 @@ void MujocoRos2ControlPlugin::reset(const mjModel* , // m,
             RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to deactivate controllers");
             return;
          }
-         RCLCPP_INFO(controller_manager_->get_logger(), "All controller deactivation succeded!");
 
          if(controller_manager_->switch_controller(active_controllers_name, no_controllers, 2, false, timeout) == controller_interface::return_type::ERROR)
          {
             RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to activate controllers");
             return;
          }
-         RCLCPP_INFO(controller_manager_->get_logger(), "All controller activation succeded!");
       }
       
       reset_thread_finished = true;
