@@ -35,66 +35,66 @@ namespace mujoco_ros2_control
 
 class MujocoSystem : public MujocoSystemInterface
 {
-public:
-  MujocoSystem();
-  std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
-  std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
+ public:
+   MujocoSystem();
+   std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
+   std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
-  hardware_interface::return_type read(
-    const rclcpp::Time &time, const rclcpp::Duration &period) override;
-  hardware_interface::return_type write(
-    const rclcpp::Time &time, const rclcpp::Duration &period) override;
+   hardware_interface::return_type read(const rclcpp::Time& time, const rclcpp::Duration& period) override;
+   hardware_interface::return_type write(const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
-  bool init_sim(
-    const mjModel *mujoco_model, mjData *mujoco_data, const urdf::Model &urdf_model,
-    const hardware_interface::HardwareInfo &hardware_info) override;
+   bool init_sim(const mjModel* mujoco_model, mjData* mujoco_data, const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info) override;
 
-  bool reset_sim() override {set_initial_pose(); return true;}
+   bool reset_sim() override
+   {
+      set_initial_pose();
+      return true;
+   }
 
-  struct JointState
-  {
-    std::string name;
-    double initial_position;
-    double position;
-    double initial_velocity;
-    double velocity;
-    double effort;
-    double position_command;
-    double velocity_command;
-    double effort_command;
-    double min_position_command;
-    double max_position_command;
-    double min_velocity_command;
-    double max_velocity_command;
-    double min_effort_command;
-    double max_effort_command;
-    bool is_position_control_enabled{false};
-    bool is_velocity_control_enabled{false};
-    bool is_effort_control_enabled{false};
-    joint_limits::JointLimits joint_limits;
-    int mj_joint_type;
-    int mj_pos_adr;
-    int mj_vel_adr;
-  };
+   struct JointState
+   {
+      std::string name;
+      double initial_position;
+      double position;
+      double initial_velocity;
+      double velocity;
+      double effort;
+      double position_command;
+      double velocity_command;
+      double effort_command;
+      double min_position_command;
+      double max_position_command;
+      double min_velocity_command;
+      double max_velocity_command;
+      double min_effort_command;
+      double max_effort_command;
+      bool is_position_control_enabled{ false };
+      bool is_velocity_control_enabled{ false };
+      bool is_effort_control_enabled{ false };
+      joint_limits::JointLimits joint_limits;
+      int mj_joint_type;
+      int mj_pos_adr;
+      int mj_vel_adr;
+   };
 
-private:
-  void register_joints(
-    const urdf::Model &urdf_model, const hardware_interface::HardwareInfo &hardware_info);
-  void set_initial_pose();
-  void get_joint_limits(
-    urdf::JointConstSharedPtr urdf_joint, joint_limits::JointLimits &joint_limits);
-  double clamp(double v, double lo, double hi) { return (v < lo) ? lo : (hi < v) ? hi : v; }
+ private:
+   void register_joints(const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info);
+   void set_initial_pose();
+   void get_joint_limits(urdf::JointConstSharedPtr urdf_joint, joint_limits::JointLimits& joint_limits);
+   double clamp(double v, double lo, double hi)
+   {
+      return (v < lo) ? lo : (hi < v) ? hi : v;
+   }
 
-  std::vector<hardware_interface::StateInterface> state_interfaces_;
-  std::vector<hardware_interface::CommandInterface> command_interfaces_;
+   std::vector<hardware_interface::StateInterface> state_interfaces_;
+   std::vector<hardware_interface::CommandInterface> command_interfaces_;
 
-  std::vector<JointState> joint_states_;
+   std::vector<JointState> joint_states_;
 
-  const mjModel *mj_model_;
-  mjData *mj_data_;
+   const mjModel* mj_model_;
+   mjData* mj_data_;
 
-  rclcpp::Logger logger_;
-  bool initial_pose_set_ = false; // TODO: remove
+   rclcpp::Logger logger_;
 };
 }  // namespace mujoco_ros2_control
 

@@ -248,28 +248,56 @@ void MujocoRos2ControlPlugin::reset(const mjModel* , // m,
                                     int              // plugin_id
 )
 {
-   // std::vector<controller_manager::ControllerSpec> controllers = controller_manager_->get_loaded_controllers();
-
-   // Deactivating controllers
-   // for (auto& each_controller : controllers)
-   // {
-   //    const rclcpp_lifecycle::State controller_lyfe_cycle = each_controller.c->get_state();
-   //    each_controller.c->on_deactivate(controller_lyfe_cycle);
-   //    controller_interface::ControllerInterfaceBaseSharedPtr temp = each_controller.c;
-
-   //    each_controller.c->on_activate(controller_lyfe_cycle);
-   // }
-
-   // controller_manager_->init_resource_manager(robot_description_);
    p_mujoco_system_->reset_sim();
    last_update_sim_time_ros_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
-   // Activating controllers
-   // for (auto& each_controller : controllers)
-   // {
-   //    const rclcpp_lifecycle::State controller_lyfe_cycle = each_controller.c->get_state();
-   //    each_controller.c->on_activate(controller_lyfe_cycle);
-   // }
+   rclcpp::Duration sim_period = rclcpp::Duration(1, 0); 
+   controller_manager_->read(time_since_sim_started, sim_period);
+
+   std::vector<std::string> active_controllers_name;
+   auto add_if_active = [&active_controllers_name](const controller_manager::ControllerSpec& controller)
+   {
+      if(controller.c->get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+         active_controllers_name.push_back(controller.info.name);
+   };
+   
+   std::vector<controller_manager::ControllerSpec> controllers = controller_manager_->get_loaded_controllers();
+   std::for_each(controllers.begin(), controllers.end(), add_if_active);
+
+   bool reset_thread_finished = false;
+   auto reset_controllers = [this, &reset_thread_finished, &active_controllers_name]() 
+   { 
+      std::vector<std::string> no_controllers = {};
+      if(active_controllers_name.empty() == false)
+      {
+         rclcpp::Duration timeout = rclcpp::Duration(5, 0);
+         if(controller_manager_->switch_controller(no_controllers, active_controllers_name, 2, false, timeout) == controller_interface::return_type::ERROR)
+         {
+            RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to deactivate controllers");
+            return;
+         }
+         RCLCPP_INFO(controller_manager_->get_logger(), "All controller deactivation succeded!");
+
+         if(controller_manager_->switch_controller(active_controllers_name, no_controllers, 2, false, timeout) == controller_interface::return_type::ERROR)
+         {
+            RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to activate controllers");
+            return;
+         }
+         RCLCPP_INFO(controller_manager_->get_logger(), "All controller activation succeded!");
+      }
+      
+      reset_thread_finished = true;
+   };
+   std::thread reset_controller_thread = std::thread(reset_controllers);
+
+   while(reset_thread_finished != true)
+      controller_manager_->update(time_since_sim_started, sim_period);
+
+   if(reset_controller_thread.joinable())
+      reset_controller_thread.join();
+
+   // TODO: add correct time (i.e. time required for the whole reset funcition)
+   time_since_sim_started += sim_period;
 
    return;
 }
