@@ -4,7 +4,11 @@
 
 ## Overview
 
-This repository contains a ROS2 control package for Mujoco simulation, offering the `MujocoSystem` plugin to integrate `ros2_control` with Mujoco. Additionally, it includes a node responsible for initializing the plugin, Mujoco rendering, and the simulation.
+This repository can be tought as the equivalent of [gz_ros2_control](https://github.com/ros-controls/gz_ros2_control) but for the [Mujoco](https://mujoco.readthedocs.io/en/stable/overview.html) simulator.
+The implementation is started from [mujoco_ros2_control](https://github.com/moveit/mujoco_ros2_control) but differs from it since it wrap the original code around a [Mujoco plugin](https://mujoco.readthedocs.io/en/stable/programming/extension.html#engine-plugins). 
+The Mujoco Plugin instantate a [ros2_control](https://control.ros.org/rolling/index.html) controller manager that loads the [hadrware interface](mujoco_ros2_control/src/mujoco_system.cpp) as a plugin. 
+
+Finally, it can be combined with [mujoco_ros_utils](https://github.com/pucciland95/mujoco_ros_utils) to increase its capabilities and get in Ros2 ecosystem other data like camera streams or object poses.
 
 ## Installation Guide
 
@@ -35,19 +39,4 @@ colcon build
 
 ## Usage
 
-See the [documentation](doc/index.rst) for usage.
-
-## Docker
-
-A basic containerized workflow is provided to test this package in isolation.
-For more information refer to the [docker documentation](docker/RUNNING_IN_DOCKER.md).
-
-## Future Work
-
-Here are several potential areas for future improvement:
-
-1. **Sensors:** Implement IMU sensors, and range sensors.
-
-2. **Loading Model From URDF:** Implement direct loading of models from URDF, eliminating the need to convert URDF files to XML.
-
-Feel free to suggest ideas for new features or improvements.
+TODO

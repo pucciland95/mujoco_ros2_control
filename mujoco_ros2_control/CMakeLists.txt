@@ -84,7 +84,6 @@ install(TARGETS mujoco_system_plugins
 )
 pluginlib_export_plugin_description_file(mujoco_ros2_control mujoco_system_plugins.xml)
 
-# add_executable(mujoco_ros2_control src/mujoco_ros2_control_node.cpp src/mujoco_ros2_control.cpp src/mujoco_ros2_control_plugin.cpp)
 add_library(mujoco_ros2_control SHARED src/mujoco_ros2_control_plugin.cpp)
 ament_target_dependencies(mujoco_ros2_control ${THIS_PACKAGE_DEPENDS})
 target_link_libraries(mujoco_ros2_control ${MUJOCO_LIB} glfw)
@@ -110,18 +109,6 @@ install(
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-
-# add_custom_command(
-#    TARGET mujoco_system
-#    POST_BUILD
-#    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_system>
-#             ${MUJOCO_BIN_DIR}/mujoco_plugin)
-
-# add_custom_command(
-#   TARGET mujoco_ros2_control
-#   POST_BUILD
-#   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_ros2_control>
-#           ${MUJOCO_BIN_DIR}/mujoco_plugin)
 
 add_custom_command(
   TARGET mujoco_ros_control_plugin
