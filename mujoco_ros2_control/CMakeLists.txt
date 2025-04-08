@@ -86,7 +86,7 @@ pluginlib_export_plugin_description_file(mujoco_ros2_control mujoco_system_plugi
 
 add_library(mujoco_ros2_control SHARED src/mujoco_ros2_control_plugin.cpp)
 ament_target_dependencies(mujoco_ros2_control ${THIS_PACKAGE_DEPENDS})
-target_link_libraries(mujoco_ros2_control ${MUJOCO_LIB} glfw)
+target_link_libraries(mujoco_ros2_control ${MUJOCO_LIB} glfw mujoco_system_plugins)
 target_include_directories(mujoco_ros2_control
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
