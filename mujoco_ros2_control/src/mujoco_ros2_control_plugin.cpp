@@ -13,8 +13,10 @@ void MujocoRos2ControlPlugin::RegisterPlugin()
    // Allow plugins to be placed on either the body element or the actuator element
    plugin.capabilityflags |= mjPLUGIN_PASSIVE;
 
-   plugin.nattribute = 0;
-   plugin.attributes = nullptr;
+   const char * attributes[] = {"controller_to_load_name"};
+   
+   plugin.nattribute = sizeof(attributes) / sizeof(attributes[0]);
+   plugin.attributes = attributes;
 
    plugin.nstate = +[](const mjModel*,  // m
                        int              // plugin_id
@@ -65,10 +67,17 @@ void MujocoRos2ControlPlugin::RegisterPlugin()
 
 MujocoRos2ControlPlugin* MujocoRos2ControlPlugin::Create(const mjModel* mj_model, mjData* mj_data, int plugin_id)
 {
+   const char * controller_to_load_name = mj_getPluginConfig(mj_model, plugin_id, "controller_to_load_name");
+   if(strlen(controller_to_load_name) == 0)
+   {
+     mju_error("[mujoco_ros2_control] `controller_to_load_name` is missing.");
+     return nullptr;
+   }
+   std::string controller_to_load_name_str = std::string(controller_to_load_name);
 
    std::cout << "[MujocoRos2ControlPlugin] Create." << std::endl;
 
-   return new MujocoRos2ControlPlugin();
+   return new MujocoRos2ControlPlugin(controller_to_load_name_str);
 }
 
 // ------------------------------------------------------ //
@@ -208,9 +217,8 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    bool successful_init = true;
    auto init_controllers = [this, &init_thread_finished, &successful_init]() 
    { 
-      std::vector<std::string> controllers_to_start_names = {"joint_state_broadcaster", "cartesian_velocity_controller"}; // TODO: get from plugin config
       std::vector<std::string> no_controllers = {};
-      for (auto ctrl_name : controllers_to_start_names)
+      for (auto ctrl_name : controllers_to_load_name_)
       {
          // Loading
          auto ctrl = controller_manager_->load_controller(ctrl_name);
@@ -232,7 +240,7 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
       }
 
       rclcpp::Duration timeout = rclcpp::Duration(5, 0);
-      if(controller_manager_->switch_controller(controllers_to_start_names, no_controllers, 2, false, timeout) == controller_interface::return_type::ERROR)
+      if(controller_manager_->switch_controller(controllers_to_load_name_, no_controllers, 2, false, timeout) == controller_interface::return_type::ERROR)
       {
          RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to activate controllers at initialisation");
          successful_init = false;

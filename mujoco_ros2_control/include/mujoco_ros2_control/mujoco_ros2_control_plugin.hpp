@@ -49,8 +49,9 @@ class MujocoRos2ControlPlugin
      \param actuator_id actuator ID
      \param topic_name topic name
    */
-   MujocoRos2ControlPlugin() : time_since_sim_started(0, 0, RCL_ROS_TIME), last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
+   MujocoRos2ControlPlugin(std::string controller_to_load_name) : time_since_sim_started(0, 0, RCL_ROS_TIME), last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
    {
+      controllers_to_load_name_.push_back(controller_to_load_name);
    }
 
    ~MujocoRos2ControlPlugin()
@@ -93,6 +94,8 @@ class MujocoRos2ControlPlugin
    std::shared_ptr<controller_manager::ControllerManager> controller_manager_;
    std::string robot_description_;
    mujoco_ros2_control::MujocoSystemInterface* p_mujoco_system_;
+   std::vector<std::string> controllers_to_load_name_ = {"joint_state_broadcaster"};
+
 
    // Non ROS variables
    std::thread cm_thread_;
