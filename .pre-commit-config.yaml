@@ -13,10 +13,11 @@ repos:
         args: [--branch, fake-branch, --pattern, "^(?!((feat|fix|chore|refactor|test|docs|hotfix)\\/[a-zA-Z0-9\\-]+$|humble|jazzy|ros2|main|master|cmake|ros2_cpp|ros2_python)$).*"]
   #     - id: trailing-whitespace
   #     - id: end-of-file-fixer
-  # - repo: https://github.com/pre-commit/mirrors-clang-format
-  #   rev: v14.0.0
-  #   hooks:
-  #     - id: clang-format
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v20.1.0
+    hooks:
+      - id: clang-format
+        args: ["-style=file"]
   # - repo: https://github.com/conventional-changelog/commitlint
   #   rev: v17.6.5
   #   hooks:
