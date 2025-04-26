@@ -94,8 +94,7 @@ class MujocoRos2ControlPlugin
    std::shared_ptr<controller_manager::ControllerManager> controller_manager_;
    std::string robot_description_;
    mujoco_ros2_control::MujocoSystemInterface* p_mujoco_system_;
-   std::vector<std::string> controllers_to_load_name_ = {"joint_state_broadcaster"};
-
+   std::vector<std::string> controllers_to_load_name_ = { "joint_state_broadcaster" };
 
    // Non ROS variables
    std::thread cm_thread_;
