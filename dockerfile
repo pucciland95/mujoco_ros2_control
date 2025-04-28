@@ -1,0 +1,66 @@
+# How to build: docker build -f dockerfile -t mujoco_ros2_controlls .
+# How to run to develop: docker run --net=host --ipc=host --env="DISPLAY" --volume=/tmp/.X11-unix:/tmp/.X11-unix:rw  -it --rm --volume=.:/ros/muj_ros2_ctrl_ws/src mujoco_ros2_control
+
+# Arguments
+ARG ROS_DISTRO=humble
+
+FROM ros:${ROS_DISTRO}
+
+ARG ROS2_WS_NAME=muj_ros2_ctrl_ws
+ARG MUJOCO_VERSION=3.2.7
+ARG CPU_ARCH=x86_64
+
+# Change the default shell to Bash
+SHELL [ "/bin/bash" , "-c" ]
+
+# Install basic utils
+RUN apt-get update \
+    && apt install -y \
+    python3-pip \
+    git \
+    ssh \
+    vim \
+    wget \
+    && rm -rf /var/lib/apt/list/*
+
+# ------------ Configure and install MuJoCo ------------ #
+# Getting the dependencies
+RUN apt install -y \
+      libgl1-mesa-dev \
+      libxinerama-dev \
+      libxcursor-dev \
+      libxrandr-dev \
+      libxi-dev \
+      ninja-build \
+      libglfw3-dev
+
+# Getting the .tag.gz and extracting it
+ENV MUJOCO_VERSION=${MUJOCO_VERSION}
+ENV MUJOCO_DIR="/mujoco-${MUJOCO_VERSION}"
+
+RUN wget https://github.com/google-deepmind/mujoco/releases/download/${MUJOCO_VERSION}/mujoco-${MUJOCO_VERSION}-linux-${CPU_ARCH}.tar.gz
+RUN tar -xzf "mujoco-${MUJOCO_VERSION}-linux-${CPU_ARCH}.tar.gz" -C $(dirname "${MUJOCO_DIR}")
+RUN rm -rf mujoco-${MUJOCO_VERSION}-linux-${CPU_ARCH}.tar.gz
+
+# Copy source code + getting ROS2 dependencies + building the code
+COPY . /ros/${ROS2_WS_NAME}/src/mujoco_ros2_control 
+WORKDIR /ros/${ROS2_WS_NAME}
+
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
+    && apt-get update -y \
+    && rosdep update \
+    && rosdep install --from-paths src --ignore-src --rosdistro ${ROS_DISTRO} -y \
+    && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && rm -rf /var/lib/apt/list/*
+    
+# Delete the source and build folders
+RUN rm -rf /ros/${ROS2_WS_NAME}/src \
+    && rm -rf /ros/${ROS2_WS_NAME}/build
+
+RUN echo 'source /ros/${ROS2_WS_NAME}/install/setup.bash' >> ~/.bashrc
+
+# Entrypoint
+COPY entrypoint.sh /
+RUN chmod +x /entrypoint.sh 
+ENTRYPOINT [ "/bin/bash", "/entrypoint.sh" ]
+CMD ["bash"]
