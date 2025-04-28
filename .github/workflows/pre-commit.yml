@@ -1,4 +1,4 @@
-name: CI
+name: pre-commit
 on:
   workflow_dispatch:
   pull_request:
@@ -16,32 +16,8 @@ jobs:
     steps:
     - name: Checkout code from current branch
       uses: actions/checkout@v4
-    - name: Setup ROS
-      uses: ros-tooling/setup-ros@v0.7
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo rosdep update --rosdistro ${{ env.ROS_DISTRO }}
-        sudo rosdep install --from-paths . --ignore-src -y -t test --rosdistro ${{ env.ROS_DISTRO }}
     - name: Run pre-commit
       run: |
         pip3 install pre-commit
         source /opt/ros/${{ env.ROS_DISTRO }}/setup.bash
         pre-commit run --all-files
-
-  # build:
-  #   needs: pre-commit
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout code from current branch
-  #     uses: actions/checkout@v4
-  #   - name: Set up Docker Buildx
-  #     uses: docker/setup-buildx-action@v3
-  #   - name: Build in Docker container
-  #     uses: docker/build-push-action@v6
-  #     with:
-  #       context: .
-  #       file: docker/Dockerfile
-  #       push: false
-  #       load: true
-  #       tags: mujoco_ros2_control:latest
