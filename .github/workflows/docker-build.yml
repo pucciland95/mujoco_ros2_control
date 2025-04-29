@@ -11,12 +11,14 @@ jobs:
    build-in-container:
       runs-on: ubuntu-latest
       steps:
-      -  name: Set up Docker Buildx
-         uses: docker/setup-buildx-action@v3
-      -  name: Build Docker image
-         uses: docker/build-push-action@v6
-         with:
-            push: false
-            context: .
-            file: Docker/dockerfile
-            tags: mujoco_ros2_controlls:latest
+      - name: Checkout code from current branch
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+         push: false
+         context: .
+         file: Docker/dockerfile
+         tags: mujoco_ros2_controlls:latest
