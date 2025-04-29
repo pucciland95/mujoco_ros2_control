@@ -1,4 +1,4 @@
-# How to build: docker build -f dockerfile -t mujoco_ros2_controlls .
+# How to build: docker build -f Docker/dockerfile -t mujoco_ros2_controlls .
 # How to run to develop: docker run --net=host --ipc=host --env="DISPLAY" --volume=/tmp/.X11-unix:/tmp/.X11-unix:rw  -it --rm --volume=.:/ros/muj_ros2_ctrl_ws/src mujoco_ros2_control
 
 # Arguments
@@ -54,13 +54,13 @@ RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
     && rm -rf /var/lib/apt/list/*
     
 # Delete the source and build folders
-RUN rm -rf /ros/${ROS2_WS_NAME}/src \
-    && rm -rf /ros/${ROS2_WS_NAME}/build
+RUN rm -rf /ros/${ROS2_WS_NAME}/src 
 
-RUN echo 'source /ros/${ROS2_WS_NAME}/install/setup.bash' >> ~/.bashrc
+RUN echo 'source /opt/ros/'${ROS_DISTRO}'/setup.bash' >> ~/.bashrc
+RUN echo 'source /ros/'${ROS2_WS_NAME}'/install/setup.bash' >> ~/.bashrc
 
 # Entrypoint
-COPY entrypoint.sh /
+COPY Docker/entrypoint.sh /
 RUN chmod +x /entrypoint.sh 
 ENTRYPOINT [ "/bin/bash", "/entrypoint.sh" ]
 CMD ["bash"]
