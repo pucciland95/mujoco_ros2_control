@@ -28,7 +28,7 @@ MujocoSystem::MujocoSystem() : logger_(rclcpp::get_logger("mujoco_system"))
 
 std::vector<hardware_interface::StateInterface> MujocoSystem::export_state_interfaces()
 {
-   return std::move(state_interfaces_);
+   return std::move(state_interfaces);
 }
 
 std::vector<hardware_interface::CommandInterface> MujocoSystem::export_command_interfaces()
