@@ -26,14 +26,19 @@
 #include <vector>
 
 // #include "control_toolbox/pid.hpp"
+#include "urdf/model.h"
+#include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "joint_limits/joint_limits.hpp"
-#include "mujoco_ros2_control/mujoco_system_interface.hpp"
+
+#include "mujoco/mujoco.h"
+
+// #include "mujoco_ros2_control/mujoco_system_interface.hpp"
 
 namespace mujoco_ros2_control
 {
 
-class MujocoSystem : public MujocoSystemInterface
+class MujocoSystem : public hardware_interface::SystemInterface
 {
  public:
    MujocoSystem();
@@ -43,9 +48,9 @@ class MujocoSystem : public MujocoSystemInterface
    hardware_interface::return_type read(const rclcpp::Time& time, const rclcpp::Duration& period) override;
    hardware_interface::return_type write(const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
-   bool init_sim(const mjModel* mujoco_model, mjData* mujoco_data, const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info) override;
+   bool init_sim(const mjModel* mujoco_model, mjData* mujoco_data, const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info);
 
-   bool reset_sim() override
+   bool reset_sim()
    {
       set_initial_pose();
       return true;

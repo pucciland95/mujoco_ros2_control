@@ -41,6 +41,7 @@ void MujocoRos2ControlPlugin::RegisterPlugin()
       d->plugin_data[plugin_id] = reinterpret_cast<uintptr_t>(plugin_instance);
       return 0;
    };
+   RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX \n\n\n\n ");
 
    plugin.destroy = +[](mjData* d, int plugin_id) {
       auto plugin_instance = reinterpret_cast<MujocoRos2ControlPlugin*>(d->plugin_data[plugin_id]);
@@ -121,6 +122,8 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
 {
    int argc = 0;
    char** argv = nullptr;
+   RCLCPP_INFO(rclcpp::get_logger("mujoco_ros2_control_plugin"), "  \n\n\\n\n  °°°°°°°°°°°°°°°°°°°°°°àINIT °°°°°°°°°°°°r");
+
    if (!rclcpp::ok())
    {
       rclcpp::init(argc, argv);
@@ -133,7 +136,12 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    std::vector<hardware_interface::HardwareInfo> control_hardware_info;
    try
    {
+   RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n AAAAAA \n\n\n\n ");
+
       control_hardware_info = hardware_interface::parse_control_resources_from_urdf(robot_description_);
+
+   RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n BBBB \n\n\n\n ");
+
    }
    catch (const std::runtime_error& ex)
    {
@@ -144,7 +152,10 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    // Loading hardware interface plugin
    try
    {
-      robot_hw_sim_loader_.reset(new pluginlib::ClassLoader<MujocoSystemInterface>("mujoco_ros2_control", "mujoco_ros2_control::MujocoSystemInterface"));
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n CCCCCCCCCCCCC \n\n\n\n ");
+      robot_hw_sim_loader_.reset(new pluginlib::ClassLoader<hardware_interface::SystemInterface>("mujoco_ros2_control", "hardware_interface::SystemInterface"));
+   RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n DDDDDDDDDDDDDDDDD \n\n\n\n ");
+
    }
    catch (pluginlib::LibraryLoadException& ex)
    {
@@ -152,44 +163,85 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
       return false;
    }
 
+   // ########################################################
    // Passing urdf to resource manager
-   std::unique_ptr<hardware_interface::ResourceManager> resource_manager = std::make_unique<hardware_interface::ResourceManager>();
+   auto clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+   auto logger = rclcpp::get_logger("mujoco_ros2_control_plugin");
+   std::unique_ptr<hardware_interface::ResourceManager> resource_manager = std::make_unique<hardware_interface::ResourceManager>(clock, logger);
    try
    {
-      resource_manager->load_urdf(robot_description_, false, false);
+   RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n 000000000000000000 \n\n\n\n ");
+
+      resource_manager->load_and_initialize_components(robot_description_, 500);
+
+   RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n 1111111111111111111111111111111 \n\n\n\n ");
+
    }
    catch (...)
    {
       RCLCPP_ERROR(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Error while initializing URDF!");
    }
 
+
+   // auto clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+   // auto logger = rclcpp::get_logger("mujoco_ros2_control_plugin");
+   // auto resource_manager = std::make_unique<hardware_interface::ResourceManager>(
+   //  robot_description_, clock, logger, false, 250);
+
+   // ########################################################
+
+
    for (const auto& hardware : control_hardware_info)
    {
-      std::string robot_hw_sim_type_str_ = hardware.hardware_class_type;
-      std::unique_ptr<MujocoSystemInterface> mujoco_system;
+      // std::string robot_hw_sim_type_str_ = hardware.hardware_class_type;
+   // ########################################################
+      std::string robot_hw_sim_type_str_ =  hardware.hardware_plugin_name;
+   // ######################################################## da shared pointer a unique pointer
+
+      std::unique_ptr<mujoco_ros2_control::MujocoSystem> mujoco_system;
       try
       {
-         mujoco_system = std::unique_ptr<MujocoSystemInterface>(robot_hw_sim_loader_->createUnmanagedInstance(robot_hw_sim_type_str_));
+         RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n ############ START ########### \n\n\n\n ");
+
+         p_mujoco_system_ = static_cast<mujoco_ros2_control::MujocoSystem*>(robot_hw_sim_loader_->createUnmanagedInstance(robot_hw_sim_type_str_));
+         mujoco_system = std::unique_ptr<mujoco_ros2_control::MujocoSystem>(p_mujoco_system_);
+
       }
       catch (pluginlib::PluginlibException& ex)
       {
          RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "The plugin failed to load. Error: " << ex.what());
          continue;
       }
+         RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n ############ END ########### \n\n\n\n ");
 
       urdf::Model urdf_model;
       urdf_model.initString(robot_description_);
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n ############ VVVVVVVVVVVV ########### \n\n\n\n ");
+
       if (!mujoco_system->init_sim(mj_model, mj_data, urdf_model, hardware))
       {
          RCLCPP_FATAL(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Could not initialize robot simulation interface");
          return false;
       }
 
-      p_mujoco_system_ = mujoco_system.get();
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n ############ AAAAAAAAAA       ########### \n\n\n\n ");
+
+
+      // p_mujoco_system_ = mujoco_system.get();
+
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n ############ --------- SSSS ---------       ########### \n\n\n\n ");
+
+      // RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Importing hardware: " << hardware.name);
+
       resource_manager->import_component(std::move(mujoco_system), hardware);
+
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n ############ ---- MEZZO ----       ########### \n\n\n\n ");
+
 
       rclcpp_lifecycle::State state(lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, hardware_interface::lifecycle_state_names::ACTIVE);
       resource_manager->set_component_state(hardware.name, state);
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "\n\n\n\n ############ -------------- ò --------- ########### \n\n\n\n ");
+
    }
 
    // Create the controller manager
@@ -293,6 +345,7 @@ void MujocoRos2ControlPlugin::compute(const mjModel* mj_model, mjData* mj_data,
 
 void MujocoRos2ControlPlugin::destroy()
 {
+   RCLCPP_INFO(rclcpp::get_logger("mujoco_ros2_control_plugin"), " \n\n\n\n\n\n DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD Destroy called");
    // rclcpp::shutdown();
    cm_executor_->remove_node(controller_manager_);
    cm_executor_->cancel();
@@ -308,6 +361,8 @@ void MujocoRos2ControlPlugin::reset(const mjModel* , // m,
                                     int              // plugin_id
 )
 {
+
+   RCLCPP_INFO(rclcpp::get_logger("mujoco_ros2_control_plugin"), " \n\n\\n\n  §§§§§§§§§§§§§§§§§§§§§§ RESET ");
    p_mujoco_system_->reset_sim();
    last_update_sim_time_ros_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
@@ -316,10 +371,35 @@ void MujocoRos2ControlPlugin::reset(const mjModel* , // m,
 
    // Resetting controllers
    std::vector<std::string> active_controllers_name;
+
+   // ########################################################
+   // auto controller_states = controller_manager_->get_controller_states();
+   // ########################################################
+
    auto add_if_active = [&active_controllers_name](const controller_manager::ControllerSpec& controller)
    {
-      if(controller.c->get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+   // ########################################################
+      // if(controller.c->get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+      //    active_controllers_name.push_back(controller.info.name);
+
+   //    if(controller.info.state == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+   //  active_controllers_name.push_back(controller.info.name);
+
+   // if(controller.c && controller.c->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+      // active_controllers_name.push_back(controller.info.name);
+
+      // auto it = controller_states.find(controller.info.name);
+      // if(it != controller_states.end() && it->second == "active")
+      //    active_controllers_name.push_back(controller.info.name);
+
+      // if(controller.info.state == "active")
+      // active_controllers_name.push_back(controller.info.name);
+
+      //  preso da https://control.ros.org/jazzy/doc/ros2_control/doc/release_notes.html (sembra funzionare con milioni di warning)
+      if(controller.c->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
          active_controllers_name.push_back(controller.info.name);
+   // ########################################################
+
    };
    
    std::vector<controller_manager::ControllerSpec> controllers = controller_manager_->get_loaded_controllers();

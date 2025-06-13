@@ -82,7 +82,7 @@ install(TARGETS mujoco_system_plugins
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-pluginlib_export_plugin_description_file(mujoco_ros2_control mujoco_system_plugins.xml)
+pluginlib_export_plugin_description_file(hardware_interface mujoco_system_plugins.xml)
 
 add_library(mujoco_ros2_control SHARED src/mujoco_ros2_control_plugin.cpp)
 ament_target_dependencies(mujoco_ros2_control ${THIS_PACKAGE_DEPENDS})
@@ -115,5 +115,10 @@ add_custom_command(
   POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_ros_control_plugin>
           ${MUJOCO_BIN_DIR}/mujoco_plugin)
+
+
+install(FILES mujoco_system_plugins.xml
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()

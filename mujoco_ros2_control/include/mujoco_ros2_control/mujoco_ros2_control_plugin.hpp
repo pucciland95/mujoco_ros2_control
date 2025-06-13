@@ -90,10 +90,10 @@ class MujocoRos2ControlPlugin
    rclcpp::Duration control_period_ = rclcpp::Duration(1, 0);
    rclcpp::Time time_since_sim_started;
    rclcpp::Time last_update_sim_time_ros_;
-   std::shared_ptr<pluginlib::ClassLoader<MujocoSystemInterface>> robot_hw_sim_loader_;
+   std::shared_ptr<pluginlib::ClassLoader<hardware_interface::SystemInterface>> robot_hw_sim_loader_;
    std::shared_ptr<controller_manager::ControllerManager> controller_manager_;
    std::string robot_description_;
-   mujoco_ros2_control::MujocoSystemInterface* p_mujoco_system_;
+   mujoco_ros2_control::MujocoSystem* p_mujoco_system_;
    std::vector<std::string> controllers_to_load_name_ = {"joint_state_broadcaster"};
 
 
