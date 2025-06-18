@@ -78,6 +78,7 @@ target_include_directories(mujoco_system_plugins
     ${EIGEN3_INCLUDE_DIR})
 
 install(TARGETS mujoco_system_plugins
+  EXPORT mujoco_system_plugins
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -96,7 +97,7 @@ target_include_directories(mujoco_ros2_control
 
 install(TARGETS
   mujoco_ros2_control
-  DESTINATION lib/${PROJECT_NAME})
+  DESTINATION lib)
 
 # Exporting mujoco ros2 controller as a plugin
 add_library(mujoco_ros_control_plugin SHARED src/Plugin.cpp)

@@ -25,6 +25,71 @@
 namespace mujoco_ros2_control
 {
 
+class MJResourceManager : public hardware_interface::ResourceManager
+{
+ public:
+   MJResourceManager(rclcpp::Node::SharedPtr& node, const mjModel* mj_model, mjData* mj_data)
+     : hardware_interface::ResourceManager(node->get_node_clock_interface(), node->get_node_logging_interface()), logger_(node->get_logger().get_child("MJResourceManager"))
+   {
+      node_ = node;
+      mj_model_ = mj_model;
+      mj_data_ = mj_data
+   }
+
+   MJResourceManager(const MJResourceManager&) = delete;
+
+   // Called from Controller Manager when robot description is initialized from callback
+   bool load_and_initialize_components(const std::string& urdf, unsigned int update_rate) override
+   {
+      components_are_loaded_and_initialized_ = true;
+
+      const auto hardware_info = hardware_interface::parse_control_resources_from_urdf(urdf);
+
+      for (const auto& individual_hardware_info : hardware_info)
+      {
+         std::string robot_hw_sim_type_str_ = individual_hardware_info.hardware_plugin_name;
+         RCLCPP_DEBUG(logger_, "Load hardware interface %s ...", robot_hw_sim_type_str_.c_str());
+
+         // Load hardware
+         std::unique_ptr<mujoco_ros2_control::MujocoSystem> mujoco_system;
+         std::scoped_lock guard(resource_interfaces_lock_, claimed_command_interfaces_lock_);
+         try
+         {
+            mujoco_system = std::unique_ptr<mujoco_ros2_control::MujocoSystem>(mj_system_loader_.createUnmanagedInstance(robot_hw_sim_type_str_));
+         }
+         catch (pluginlib::PluginlibException& ex)
+         {
+            RCLCPP_ERROR(logger_, "The plugin failed to load for some reason. Error: %s\n", ex.what());
+            continue;
+         }
+
+         // initialize simulation requirements
+         if (!mjSimSystem->init_sim(mj_model_, mj_data_, urdf_model, individual_hardware_info))
+         {
+            RCLCPP_FATAL(logger_, "Could not initialize robot simulation interface");
+            components_are_loaded_and_initialized_ = false;
+            break;
+         }
+         RCLCPP_DEBUG(logger_, "Initialized robot simulation interface %s!", robot_hw_sim_type_str_.c_str());
+
+         // initialize hardware
+         import_component(std::move(mujoco_system), individual_hardware_info);
+      }
+
+      return components_are_loaded_and_initialized_;
+   }
+
+ private:
+   std::shared_ptr<rclcpp::Node> node_;
+   const mjModel* mj_model_;
+   mjData* mj_data_;
+
+   /// \brief Interface loader
+   pluginlib::ClassLoader<mujoco_ros2_control::MujocoSystem> mj_system_loader_;
+
+   rclcpp::Logger logger_;
+};
+
 /** \brief Plugin to let ros2_controllers control the robot in Mujoco via ROS topic. */
 class MujocoRos2ControlPlugin
 {
@@ -85,8 +150,9 @@ class MujocoRos2ControlPlugin
    void compute(const mjModel* m, mjData* d, int plugin_id);
 
  protected:
-   // ROS variables
-   rclcpp::executors::MultiThreadedExecutor::SharedPtr cm_executor_;
+   // ROS variablesd
+   rclcpp::Node::SharedPtr node_;
+   rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
    rclcpp::Duration control_period_ = rclcpp::Duration(1, 0);
    rclcpp::Time time_since_sim_started;
    rclcpp::Time last_update_sim_time_ros_;
@@ -94,8 +160,7 @@ class MujocoRos2ControlPlugin
    std::shared_ptr<controller_manager::ControllerManager> controller_manager_;
    std::string robot_description_;
    mujoco_ros2_control::MujocoSystem* p_mujoco_system_;
-   std::vector<std::string> controllers_to_load_name_ = {"joint_state_broadcaster"};
-
+   std::vector<std::string> controllers_to_load_name_ = { "joint_state_broadcaster" };
 
    // Non ROS variables
    std::thread cm_thread_;

@@ -80,7 +80,6 @@ bool MujocoSystem::init_sim(const mjModel* mujoco_model, mjData* mujoco_data, co
 {
    mj_model_ = mujoco_model;
    mj_data_ = mujoco_data;
-   RCLCPP_INFO_STREAM(logger_, " \n\n\n\n ------ init_sim called for hardware: " << hardware_info.name);
    register_joints(urdf_model, hardware_info);
 
    set_initial_pose();
@@ -90,11 +89,8 @@ bool MujocoSystem::init_sim(const mjModel* mujoco_model, mjData* mujoco_data, co
 
 void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info)
 {
-   // #####################
    state_interfaces_.clear();
    command_interfaces_.clear();
-   RCLCPP_INFO_STREAM(logger_, " \n\n\n\n ######## register_joints called for hardware: " << hardware_info.name);
-   // #####################
    
    joint_states_.resize(hardware_info.joints.size());
 
@@ -146,23 +142,17 @@ void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware
             state_interfaces_.emplace_back(joint.name, hardware_interface::HW_IF_POSITION, &last_joint_state.position);
             last_joint_state.position = get_initial_value(state_info);
             last_joint_state.initial_position = last_joint_state.position;
-            // RCLCPP_INFO_STREAM(logger_, " \n\n\n AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA \n " << joint.name) ;
-
          }
          else if (state_info.name == hardware_interface::HW_IF_VELOCITY)
          {
             state_interfaces_.emplace_back(joint.name, hardware_interface::HW_IF_VELOCITY, &last_joint_state.velocity);
             last_joint_state.velocity = get_initial_value(state_info);
             last_joint_state.initial_velocity = last_joint_state.velocity;
-            // RCLCPP_INFO_STREAM(logger_, "  BBBBBBBBBBBBBBBBBBBBB  " << joint.name);
-
          }
          else if (state_info.name == hardware_interface::HW_IF_EFFORT)
          {
             state_interfaces_.emplace_back(joint.name, hardware_interface::HW_IF_EFFORT, &last_joint_state.effort);
             last_joint_state.effort = get_initial_value(state_info);
-            // RCLCPP_INFO_STREAM(logger_, " \n CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC " << joint.name);
-
          }
       }
 

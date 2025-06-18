@@ -35,5 +35,6 @@
 
   <export>
     <build_type>ament_cmake</build_type>
+    <exec_depend>effort_controllers</exec_depend>
   </export>
 </package>

@@ -77,18 +77,18 @@ MujocoRos2ControlPlugin* MujocoRos2ControlPlugin::Create(const mjModel* mj_model
 
    std::cout << "[MujocoRos2ControlPlugin] Create." << std::endl;
 
-   return new MujocoRos2ControlPlugin(controller_to_load_name_str);
+   auto mujoco_plugin_node = std::make_shared<rclcpp::Node>("mujoco_plugin_node", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
+
+   return new MujocoRos2ControlPlugin(mujoco_plugin_node, controller_to_load_name_str);
 }
 
 // ------------------------------------------------------ //
 // ------------------ Utilis functions ------------------ //
 
-std::string get_robot_description()
+std::string get_robot_description(rclcpp::Node::SharedPtr node)
 {
    // Getting robot description from parameter first. If not set trying from topic
    std::string robot_description;
-
-   auto node = std::make_shared<rclcpp::Node>("robot_description_node", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
 
    if (node->has_parameter("robot_description"))
    {
@@ -127,89 +127,28 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
       rclcpp::init(argc, argv);
    }
 
+   this->node_ = rclcpp::Node::make_shared("mujoco_ros2_control_plugin");
+   this->executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+   this->executor_->add_node(this->node_);
+
    // Getting robot description
-   robot_description_ = get_robot_description();
+   std::string robot_description_ = get_robot_description(node_);
 
-   // setup actuators and mechanism control node.
-   std::vector<hardware_interface::HardwareInfo> control_hardware_info;
-   try
-   {
-      control_hardware_info = hardware_interface::parse_control_resources_from_urdf(robot_description_);
-   }
-   catch (const std::runtime_error& ex)
-   {
-      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Error parsing URDF : " << ex.what());
-      return false;
-   }
+   auto spin = [this]() { executor_->spin(); };
+   cm_thread_ = std::thread(spin);
 
-   // Loading hardware interface plugin
-   try
-   {
-      robot_hw_sim_loader_.reset(new pluginlib::ClassLoader<hardware_interface::SystemInterface>("mujoco_ros2_control", "hardware_interface::SystemInterface"));
-   }
-   catch (pluginlib::LibraryLoadException& ex)
-   {
-      RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Failed to create hardware interface loader:  " << ex.what());
-      return false;
-   }
+   // Here you can start gathering ros2 parameters loaded from launch file
+   // TODO could it be usefull?
 
-   // ########################################################
-   // Passing urdf to resource manager
-   auto clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
-   auto logger = rclcpp::get_logger("mujoco_ros2_control_plugin");
-   std::unique_ptr<hardware_interface::ResourceManager> resource_manager = std::make_unique<hardware_interface::ResourceManager>(clock, logger);
-   bool ok;
-   try
-   {
-      ok = resource_manager->load_and_initialize_components(robot_description_, 500);
-   }
-   catch (...)
-   {
-      RCLCPP_ERROR(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Error while initializing URDF!");
-   }
-
-   for (const auto& hardware : control_hardware_info)
-   {
-      std::string robot_hw_sim_type_str_ = hardware.hardware_plugin_name;
-
-      std::unique_ptr<mujoco_ros2_control::MujocoSystem> mujoco_system;
-      try
-      {
-         p_mujoco_system_ = static_cast<mujoco_ros2_control::MujocoSystem*>(robot_hw_sim_loader_->createUnmanagedInstance(robot_hw_sim_type_str_));
-         mujoco_system = std::unique_ptr<mujoco_ros2_control::MujocoSystem>(p_mujoco_system_);
-      }
-      catch (pluginlib::PluginlibException& ex)
-      {
-         continue;
-      }
-
-      urdf::Model urdf_model;
-      urdf_model.initString(robot_description_);
-
-      if (!mujoco_system->init_sim(mj_model, mj_data, urdf_model, hardware))
-      {
-         RCLCPP_FATAL(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Could not initialize robot simulation interface");
-         return false;
-      }
-
-      // p_mujoco_system_ = mujoco_system.get();
-      // RCLCPP_ERROR_STREAM(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Importing hardware: " << hardware.name);
-
-      resource_manager->import_component(std::move(mujoco_system), hardware);
-      rclcpp_lifecycle::State state(lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, hardware_interface::lifecycle_state_names::ACTIVE);
-      resource_manager->set_component_state(hardware.name, state);
-   }
+   // Create the resource manager
+   RCLCPP_INFO(node_->get_logger(), "Creating resource_manager");
+   std::unique_ptr<hardware_interface::ResourceManager> resource_manager_ = std::make_unique<mujoco_ros2_control::MJResourceManager>(this->node_, mj_model, mj_data);
 
    // Create the controller manager
-   RCLCPP_INFO(rclcpp::get_logger("mujoco_ros2_control_plugin"), "Loading controller_manager");
-   cm_executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+   RCLCPP_INFO(node_->get_logger(), "Creating controller_manager");
 
-   controller_manager_ = std::make_shared<controller_manager::ControllerManager>(cm_executor_, "controller_manager", "");
-   controller_manager_->set_parameter(rclcpp::Parameter("use_sim_time", rclcpp::ParameterValue(true)));
-   cm_executor_->add_node(controller_manager_);
-
-   auto spin = [this]() { cm_executor_->spin(); };
-   cm_thread_ = std::thread(spin);
+   this->controller_manager_.reset(new controller_manager::ControllerManager(std::move(resource_manager_), this->executor_, "mj_controller_manager", this->node_->get_namespace()));
+   this->executor_->add_node(this->controller_manager_);
 
    if (!controller_manager_->has_parameter("update_rate"))
    {
@@ -224,39 +163,41 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    bool init_thread_finished = false;
    bool successful_init = true;
    auto init_controllers = [this, &init_thread_finished, &successful_init]() {
-      std::vector<std::string> no_controllers = {};
-      for (auto ctrl_name : controllers_to_load_name_)
-      {
-         // Loading
-         auto ctrl = controller_manager_->load_controller(ctrl_name);
-         if (ctrl == nullptr)
-         {
-            RCLCPP_ERROR(controller_manager_->get_logger(), "Impossible to load controller called %s", ctrl_name.c_str());
-            successful_init = false;
-            return;
-         }
+      RCLCPP_INFO(controller_manager_->get_logger(), "WAAAAAAAAAA");
 
-         // Configuring
-         controller_interface::return_type rt = controller_manager_->configure_controller(ctrl_name);
-         if (rt == controller_interface::return_type::ERROR)
-         {
-            RCLCPP_ERROR(controller_manager_->get_logger(), "Impossible to configure controller called %s", ctrl_name.c_str());
-            successful_init = false;
-            return;
-         }
-      }
+      //   std::vector<std::string> no_controllers = {};
+      //   for (auto ctrl_name : controllers_to_load_name_)
+      //   {
+      //      // Loading
+      //      auto ctrl = controller_manager_->load_controller(ctrl_name);
+      //      if (ctrl == nullptr)
+      //      {
+      //         RCLCPP_ERROR(controller_manager_->get_logger(), "Impossible to load controller called %s", ctrl_name.c_str());
+      //         successful_init = false;
+      //         return;
+      //      }
 
-      rclcpp::Duration timeout = rclcpp::Duration(5, 0);
-      if (controller_manager_->switch_controller(controllers_to_load_name_, no_controllers, 2, false, timeout) == controller_interface::return_type::ERROR)
-      {
-         RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to activate controllers at initialisation");
-         successful_init = false;
-         return;
-      }
+      //      // Configuring
+      //      controller_interface::return_type rt = controller_manager_->configure_controller(ctrl_name);
+      //      if (rt == controller_interface::return_type::ERROR)
+      //      {
+      //         RCLCPP_ERROR(controller_manager_->get_logger(), "Impossible to configure controller called %s", ctrl_name.c_str());
+      //         successful_init = false;
+      //         return;
+      //      }
+      //   }
+
+      //   rclcpp::Duration timeout = rclcpp::Duration(5, 0);
+      //   if (controller_manager_->switch_controller(controllers_to_load_name_, no_controllers, 2, false, timeout) == controller_interface::return_type::ERROR)
+      //   {
+      //      RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to activate controllers at initialisation");
+      //      successful_init = false;
+      //      return;
+      //   }
 
       init_thread_finished = true;
    };
-   std::thread init_controller_thread = std::thread(init_controllers);
+   //    std::thread init_controller_thread = std::thread(init_controllers);
 
    while (init_thread_finished != true)
    {
@@ -267,8 +208,8 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
       std::this_thread::sleep_for(100ms);
    }
 
-   if (init_controller_thread.joinable())
-      init_controller_thread.join();
+   //    if (init_controller_thread.joinable())
+   //       init_controller_thread.join();
 
    return successful_init;
 }
@@ -300,10 +241,8 @@ void MujocoRos2ControlPlugin::compute(const mjModel* mj_model, mjData* mj_data,
 
 void MujocoRos2ControlPlugin::destroy()
 {
-   RCLCPP_INFO(rclcpp::get_logger("mujoco_ros2_control_plugin"), " \n\n\n\n\n\n DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD Destroy called");
-   // rclcpp::shutdown();
-   cm_executor_->remove_node(controller_manager_);
-   cm_executor_->cancel();
+   executor_->remove_node(controller_manager_);
+   executor_->cancel();
 
    if (cm_thread_.joinable())
       cm_thread_.join();
@@ -316,7 +255,6 @@ void MujocoRos2ControlPlugin::reset(const mjModel*,  // m,
                                     int              // plugin_id
 )
 {
-   RCLCPP_INFO(rclcpp::get_logger("mujoco_ros2_control_plugin"), " \n\n\\n\n  §§§§§§§§§§§§§§§§§§§§§§ RESET ");
    p_mujoco_system_->reset_sim();
    last_update_sim_time_ros_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
