@@ -39,11 +39,6 @@ set(THIS_PACKAGE_DEPENDS
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 find_package(mujoco QUIET)
-# if(mujoco_FOUND)
-#   message(STATUS "Mujoco build from source has been found")
-#   set(MUJOCO_LIB mujoco::mujoco)
-#   set(MUJOCO_INCLUDE_DIR ${MUJOCO_INCLUDE_DIR})
-#   set(MUJOCO_BIN_DIR ${MUJOCO_BIN_DIR})
 if(DEFINED ENV{MUJOCO_DIR})
   message(STATUS "Mujoco build from source has not been found. Attempting to find the binary in $ENV{MUJOCO_DIR} instead.")
   find_library(MUJOCO_LIB mujoco HINTS $ENV{MUJOCO_DIR}/lib)
@@ -58,68 +53,104 @@ else()
 endif()
 
 
+#######################################################################################
+# Building the mujoco_controller_manager
+set(ROS_DEPENDS
+  ament_cmake
+  rclcpp
+  std_msgs
+  hardware_interface
+  pluginlib
+  controller_manager
+  joint_limits
+  urdf
+  glfw3
+  control_toolbox
+)
+
+add_library(mujoco_controller_manager SHARED 
+  src/mujoco_ros2_control_plugin.cpp)
+
+
+target_include_directories(mujoco_controller_manager
+  PUBLIC
+    include
+    ${MUJOCO_INCLUDE_DIR}
+    ${EIGEN3_INCLUDE_DIR})
+
+
+target_link_libraries(mujoco_controller_manager
+  ${MUJOCO_LIB} 
+  glfw)
+
+ament_target_dependencies(mujoco_controller_manager ${ROS_DEPENDS})
+
+#######################################################################################
 # Building the ros2_control hardware interface as a plugin
 set(HW_IF_INCLUDE_DEPENDS
+  rclcpp
   pluginlib
   joint_limits
   rcpputils
   hardware_interface
+  rclcpp_lifecycle
   urdf
 )
 
 add_library(mujoco_system_plugins SHARED src/mujoco_system.cpp)
-ament_target_dependencies(mujoco_system_plugins ${HW_IF_INCLUDE_DEPENDS})
-target_link_libraries(mujoco_system_plugins ${MUJOCO_LIB})
+
 target_include_directories(mujoco_system_plugins
   PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+    include
     ${MUJOCO_INCLUDE_DIR}
     ${EIGEN3_INCLUDE_DIR})
 
-install(TARGETS mujoco_system_plugins
-  EXPORT mujoco_system_plugins
+ament_target_dependencies(mujoco_system_plugins ${HW_IF_INCLUDE_DEPENDS})
+target_link_libraries(mujoco_system_plugins ${MUJOCO_LIB})
+
+## Install
+install(TARGETS
+  mujoco_system_plugins
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-pluginlib_export_plugin_description_file(hardware_interface mujoco_system_plugins.xml)
 
-add_library(mujoco_ros2_control SHARED src/mujoco_ros2_control_plugin.cpp)
-ament_target_dependencies(mujoco_ros2_control ${THIS_PACKAGE_DEPENDS})
-target_link_libraries(mujoco_ros2_control ${MUJOCO_LIB} glfw mujoco_system_plugins)
-target_include_directories(mujoco_ros2_control
+#######################################################################################
+
+# Install plugin description file
+ament_export_include_directories(include)
+ament_export_libraries(mujoco_system mujoco_controller_manager)
+
+install(TARGETS mujoco_controller_manager
+  DESTINATION lib)
+
+pluginlib_export_plugin_description_file(mujoco_ros2_control mujoco_system_plugins.xml)
+
+#######################################################################################
+# Exporting mujoco ros2 controller as a plugin
+add_library(mujoco_ros2_control_plugin SHARED src/Plugin.cpp)
+target_include_directories(mujoco_ros2_control_plugin PRIVATE ${MUJOCO_INCLUDE_DIR})
+
+target_include_directories(mujoco_ros2_control_plugin
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
-    ${MUJOCO_INCLUDE_DIR}
-    ${EIGEN3_INCLUDE_DIR})
+    ${MUJOCO_INCLUDE_DIR})
 
-install(TARGETS
-  mujoco_ros2_control
-  DESTINATION lib)
-
-# Exporting mujoco ros2 controller as a plugin
-add_library(mujoco_ros_control_plugin SHARED src/Plugin.cpp)
-target_include_directories(mujoco_ros_control_plugin PRIVATE ${MUJOCO_INCLUDE_DIR})
-target_link_libraries(mujoco_ros_control_plugin PUBLIC mujoco_ros2_control)
+target_link_libraries(mujoco_ros2_control_plugin PUBLIC mujoco_controller_manager ${MUJOCO_LIB})
 
 install(
-  TARGETS mujoco_ros_control_plugin
+  TARGETS mujoco_ros2_control_plugin
   EXPORT "${TARGETS_EXPORT_NAME}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 add_custom_command(
-  TARGET mujoco_ros_control_plugin
+  TARGET mujoco_ros2_control_plugin
   POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_ros_control_plugin>
+  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mujoco_ros2_control_plugin>
           ${MUJOCO_BIN_DIR}/mujoco_plugin)
-
-
-install(FILES mujoco_system_plugins.xml
-  DESTINATION share/${PROJECT_NAME}
-)
 
 ament_package()

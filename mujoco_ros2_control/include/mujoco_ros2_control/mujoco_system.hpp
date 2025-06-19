@@ -33,12 +33,12 @@
 
 #include "mujoco/mujoco.h"
 
-// #include "mujoco_ros2_control/mujoco_system_interface.hpp"
+#include "mujoco_ros2_control/mujoco_system_interface.hpp"
 
 namespace mujoco_ros2_control
 {
 
-class MujocoSystem : public hardware_interface::SystemInterface
+class MujocoSystem : public mujoco_ros2_control::MujocoSystemInterface
 {
  public:
    MujocoSystem();
@@ -48,9 +48,10 @@ class MujocoSystem : public hardware_interface::SystemInterface
    hardware_interface::return_type read(const rclcpp::Time& time, const rclcpp::Duration& period) override;
    hardware_interface::return_type write(const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
-   bool init_sim(const mjModel* mujoco_model, mjData* mujoco_data, const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info);
+   bool init_sim(const mjModel* mujoco_model, mjData* mujoco_data, 
+      const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info) override;
 
-   bool reset_sim()
+   bool reset_sim() override
    {
       set_initial_pose();
       return true;

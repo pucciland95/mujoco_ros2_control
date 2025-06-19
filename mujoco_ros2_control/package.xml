@@ -18,6 +18,7 @@
   <depend>rclcpp</depend>
   <depend>hardware_interface</depend>
   <depend>controller_manager</depend>
+  <depend>ros2_controllers</depend>
   <depend>joint_limits</depend>
   <depend>pluginlib</depend>
   <depend>urdf</depend>
