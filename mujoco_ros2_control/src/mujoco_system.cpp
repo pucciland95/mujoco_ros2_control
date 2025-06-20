@@ -54,8 +54,8 @@ hardware_interface::return_type MujocoSystem::write(const rclcpp::Time& /* time 
    // Joint states
    for (auto& joint_state : joint_states_)
    {
-      if (joint_state.is_position_control_enabled)
-         mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position_command;
+      // if (joint_state.is_position_control_enabled)
+      //    mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.position_command;
 
       if (joint_state.is_velocity_control_enabled)
          mj_data_->ctrl[joint_state.mj_vel_adr] = joint_state.velocity_command;
