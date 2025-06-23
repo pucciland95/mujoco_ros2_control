@@ -7,10 +7,12 @@
   <version>0.1.0</version>
   <description>mujoco_ros2_control</description>
 
+  <maintainer email="niccolo.lucci@hirorobotics.com">Sangtaek Lee</maintainer>
   <maintainer email="sangteak601@gmail.com">Sangtaek Lee</maintainer>
 
   <license>MIT</license>
 
+  <author>Niccolo Lucci</author>
   <author>Sangtaek Lee</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
