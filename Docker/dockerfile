@@ -2,7 +2,7 @@
 # How to run to develop: docker run --net=host --ipc=host --env="DISPLAY" --volume=/tmp/.X11-unix:/tmp/.X11-unix:rw  -it --rm --volume=.:/ros/muj_ros2_ctrl_ws/src mujoco_ros2_control
 
 # Arguments
-ARG ROS_DISTRO=humble
+ARG ROS_DISTRO=jazzy
 
 FROM ros:${ROS_DISTRO}
 
