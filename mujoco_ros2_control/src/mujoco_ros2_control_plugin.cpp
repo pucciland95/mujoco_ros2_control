@@ -101,20 +101,23 @@ void MujocoRos2ControlPlugin::compute(const mjModel* mj_model, mjData* mj_data,
                                       int  // plugin_id
 )
 {
+   rclcpp::Time current_loop_time = controller_manager_->get_clock()->now();
+   rclcpp::Duration sim_period = current_loop_time - last_loop_time_;
+   last_loop_time_ = current_loop_time;
    // Get the simulation time and period
-   rclcpp::Time sim_time_ros = ros_time_from_mujoco_time(mj_data);
-   rclcpp::Duration sim_period = sim_time_ros - last_update_sim_time_ros_;
+   // rclcpp::Time sim_time_ros = ros_time_from_mujoco_time(mj_data);
+   // rclcpp::Duration sim_period = sim_time_ros - last_update_sim_time_ros_;
 
    if (sim_period >= control_period_)
    {
-      time_last_control_loop_ += sim_period;
-      controller_manager_->read(time_last_control_loop_, sim_period);
-      controller_manager_->update(time_last_control_loop_, sim_period);
-      last_update_sim_time_ros_ = sim_time_ros;
+      // time_last_control_loop_ += sim_period;
+      controller_manager_->read(current_loop_time, sim_period);
+      controller_manager_->update(current_loop_time, sim_period);
+      // last_update_sim_time_ros_ = sim_time_ros;
    }
 
    // use same time as for read and update call - this is how it is done in ros2_control_node
-   controller_manager_->write(time_last_control_loop_, sim_period);
+   controller_manager_->write(current_loop_time, sim_period);
    return;
 }
 
@@ -171,7 +174,7 @@ bool MujocoRos2ControlPlugin::initialise_controller_manager(const mjModel* mj_mo
       return false;
    }
 
-   time_last_control_loop_ = ros_time_from_mujoco_time(mj_data);
+   last_loop_time_ = controller_manager_->get_clock()->now();
 
    auto update_rate = controller_manager_->get_update_rate();
    control_period_ = rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / static_cast<double>(update_rate))));
@@ -183,6 +186,12 @@ bool MujocoRos2ControlPlugin::initialise_controller_manager(const mjModel* mj_mo
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(1s);
    }
+   RCLCPP_WARN(node_->get_logger(), "RM  loaded and initialized!");
+
+   // Launching the controllers on a different thread
+   bool launch_thread_ok = true;
+   auto launch_controllers_lamda = [this, &launch_thread_ok]() { launch_thread_ok = launch_controllers(); };
+   std::thread launch_controller_thread = std::thread(launch_controllers_lamda);
 
    // Waiting 4 controllers to be initialised in a different thread
    bool init_thread_finished = false;
@@ -193,36 +202,28 @@ bool MujocoRos2ControlPlugin::initialise_controller_manager(const mjModel* mj_mo
          std::this_thread::sleep_for(500ms);
       }
 
-      configure_controllers();
-
       init_thread_finished = true;
    };
    std::thread init_controller_thread = std::thread(init_controllers);
 
-   // Launching the controllers on a different thread
-   bool launch_thread_ok = true;
-   auto launch_controllers_lamda = [this, &launch_thread_ok]() { launch_thread_ok = launch_controllers(); };
-   std::thread launch_controller_thread = std::thread(launch_controllers_lamda);
-
    // Spinning controller manager untill init_thread_finished is finished
-   while (init_thread_finished != true)
+   while (init_thread_finished == false)
    {
       rclcpp::Time current_time = controller_manager_->get_clock()->now();
-      rclcpp::Duration sim_period = current_time - time_last_control_loop_;
+      rclcpp::Duration sim_period = current_time - last_loop_time_;
 
-      RCLCPP_INFO(node_->get_logger(), "current_time = %s", std::to_string(current_time.seconds()).c_str());
-      RCLCPP_INFO(node_->get_logger(), "time_last_control_loop_ = %s", std::to_string(time_last_control_loop_.seconds()).c_str());
-      RCLCPP_INFO(node_->get_logger(), "sim_period = %s", std::to_string(sim_period.seconds()).c_str());
+      controller_manager_->update(current_time, sim_period);
 
-      controller_manager_->update(time_last_control_loop_, sim_period);
-
-      time_last_control_loop_ = current_time;
+      last_loop_time_ = current_time;
 
       if (launch_thread_ok == false)
+      {
+         RCLCPP_ERROR(controller_manager_->get_logger(), "launch_thread FAILED");
          return false;
+      }
 
       using namespace std::chrono_literals;
-      std::this_thread::sleep_for(500ms);
+      std::this_thread::sleep_for(300ms);
    }
 
    if (launch_controller_thread.joinable())
@@ -261,11 +262,11 @@ bool MujocoRos2ControlPlugin::are_controllers_loaded()
       }
 
       // Check that ros controller is ACTIVE
-      // if (it->c->get_lifecycle_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
-      // {
-      //    RCLCPP_WARN(node_->get_logger(), "%s controller has not been yet been initialised and is in state!", controller_name.c_str());
-      //    return false;
-      // }
+      if (it->c->get_lifecycle_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+      {
+         RCLCPP_WARN(node_->get_logger(), "%s controller has not been yet been initialised and is in state %s!", controller_name.c_str(), it->c->get_lifecycle_state().label().c_str());
+         return false;
+      }
    }
 
    RCLCPP_WARN(node_->get_logger(), "All ros controllers initialised!");
@@ -377,7 +378,8 @@ bool MujocoRos2ControlPlugin::launch_controllers()
    std::string command = launch_file_path + launch_file_name + args;
    std::string ros2_command = "ros2 launch " + command;
 
-   int result = system(ros2_command.c_str());
+   // Launch the command in a non-blocking way by appending " &" to run in the background
+   int result = system((ros2_command).c_str());
    if (result == -1)
    {
       RCLCPP_ERROR(node_->get_logger(), "Failed to execute ros2 launch command");
