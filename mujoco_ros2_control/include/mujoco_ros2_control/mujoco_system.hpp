@@ -48,8 +48,7 @@ class MujocoSystem : public mujoco_ros2_control::MujocoSystemInterface
    hardware_interface::return_type read(const rclcpp::Time& time, const rclcpp::Duration& period) override;
    hardware_interface::return_type write(const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
-   bool init_sim(const mjModel* mujoco_model, mjData* mujoco_data, 
-      const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info) override;
+   bool init_sim(const mjModel* mujoco_model, mjData* mujoco_data, const urdf::Model& urdf_model, const hardware_interface::HardwareInfo& hardware_info) override;
 
    bool reset_sim() override
    {

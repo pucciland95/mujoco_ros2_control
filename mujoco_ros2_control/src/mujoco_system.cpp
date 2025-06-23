@@ -91,7 +91,7 @@ void MujocoSystem::register_joints(const urdf::Model& urdf_model, const hardware
 {
    state_interfaces_.clear();
    command_interfaces_.clear();
-   
+
    joint_states_.resize(hardware_info.joints.size());
 
    for (size_t joint_index = 0; joint_index < hardware_info.joints.size(); joint_index++)

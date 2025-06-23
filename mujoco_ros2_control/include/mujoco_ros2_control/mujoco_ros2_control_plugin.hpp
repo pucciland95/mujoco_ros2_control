@@ -95,7 +95,7 @@ class MJResourceManager : public hardware_interface::ResourceManager
    bool reset_resource_manager()
    {
       bool ok = false;
-      if(p_mujoco_system != nullptr)
+      if (p_mujoco_system != nullptr)
          ok = p_mujoco_system->reset_sim();
 
       return ok;
@@ -136,7 +136,7 @@ class MujocoRos2ControlPlugin
      \param actuator_id actuator ID
      \param topic_name topic name
    */
-   MujocoRos2ControlPlugin(std::string controller_to_load_name) : last_loop_time_(0, 0, RCL_ROS_TIME) // , last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
+   MujocoRos2ControlPlugin(std::string controller_to_load_name) : last_loop_time_(0, 0, RCL_ROS_TIME)  // , last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
    {
       controllers_to_load_name_.push_back(controller_to_load_name);
    }
@@ -195,7 +195,6 @@ class MujocoRos2ControlPlugin
    bool launch_controllers();
 
    // rclcpp::Time ros_time_from_mujoco_time(mjData* mj_data);
-
 
  protected:
    // ROS variablesd
