@@ -5,7 +5,7 @@ on:
   merge_group:
   push:
     branches:
-      - main
+      - jazzy
 
 env:
   ROS_DISTRO: humble
