@@ -97,8 +97,9 @@ bool MujocoRos2ControlPlugin::initialise(const mjModel* mj_model, mjData* mj_dat
    return ok;
 }
 
-void MujocoRos2ControlPlugin::compute(const mjModel* mj_model, mjData* mj_data,
-                                      int  // plugin_id
+void MujocoRos2ControlPlugin::compute(const mjModel*,  // mj_model
+                                      mjData*,         // mj_data,
+                                      int              // plugin_id
 )
 {
    rclcpp::Time current_loop_time = controller_manager_->get_clock()->now();

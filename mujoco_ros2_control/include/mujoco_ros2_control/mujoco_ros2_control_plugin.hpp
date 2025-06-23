@@ -49,7 +49,7 @@ class MJResourceManager : public hardware_interface::ResourceManager
    }
 
    // Called from Controller Manager when robot description is initialized from callback
-   bool load_and_initialize_components(const std::string& urdf, unsigned int update_rate) override
+   bool load_and_initialize_components(const std::string& urdf, unsigned int /*update_rate*/) override
    {
       components_are_loaded_and_initialized_ = true;
 
