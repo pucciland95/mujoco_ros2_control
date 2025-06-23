@@ -138,16 +138,22 @@ void MujocoRos2ControlPlugin::reset(const mjModel* mj_model,
                                     int  // plugin_id
 )
 {
-   // this->unload_controllers();
-   // this->load_controllers();
+   // Resetting mujoco
+   if (p_mj_resource_manager_ != nullptr)
+      p_mj_resource_manager_->reset_resource_manager();
 
-   // last_update_sim_time_ros_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
+   rclcpp::Time current_time = controller_manager_->get_clock()->now();
+   rclcpp::Duration sim_period = current_time - last_loop_time_;
+   controller_manager_->read(current_time, sim_period);
+   last_loop_time_ = current_time;
 
-   // rclcpp::Duration sim_period = rclcpp::Duration(1, 0);           // Is it useful?
-   // controller_manager_->read(time_since_sim_started, sim_period);  // Is it useful?
+   // Unloading controllers
+   if (this->unload_controllers() == false)
+      RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to unload controllers");
 
-   // TODO: add correct time (i.e. time required for the whole reset funcition)
-   // time_since_sim_started += sim_period;  // Is it useful?
+   // Loading controllers
+   if (this->load_controllers() == false)
+      RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to load controllers");
 
    return;
 }
@@ -159,13 +165,13 @@ bool MujocoRos2ControlPlugin::initialise_controller_manager(const mjModel* mj_mo
 {
    // Create the resource manager
    std::unique_ptr<hardware_interface::ResourceManager> resource_manager_ = std::make_unique<mujoco_ros2_control::MJResourceManager>(this->node_, mj_model, mj_data);
+   p_mj_resource_manager_ = static_cast<mujoco_ros2_control::MJResourceManager*>(resource_manager_.get());
 
    // Create the controller manager
    std::string controller_manager_node_name = "controller_manager";
    rclcpp::NodeOptions options = controller_manager::get_cm_node_options();
 
-   controller_manager_ =
-       std::make_shared<controller_manager::ControllerManager>(std::move(resource_manager_), executor_, controller_manager_node_name, node_->get_namespace(), options);
+   controller_manager_ = std::make_shared<controller_manager::ControllerManager>(std::move(resource_manager_), executor_, controller_manager_node_name, node_->get_namespace(), options);
    executor_->add_node(this->controller_manager_);
 
    if (!controller_manager_->has_parameter("update_rate"))
@@ -273,87 +279,80 @@ bool MujocoRos2ControlPlugin::are_controllers_loaded()
    return true;
 }
 
-bool MujocoRos2ControlPlugin::configure_controllers()
-{
-   for(std::string each_ctrl : controllers_to_load_name_)
-   {
-      if(controller_manager_->configure_controller(each_ctrl) == controller_interface::return_type::OK)
-         RCLCPP_WARN(node_->get_logger(), "Controller %s configured!", each_ctrl.c_str());
-      else
-      {
-         RCLCPP_ERROR(node_->get_logger(), "Failed to configure %s controller!", each_ctrl.c_str());
-         return false;
-      }
-   }
-   RCLCPP_WARN(node_->get_logger(), "All ros controllers configured!");
-
-   return true;
-}
-
 bool MujocoRos2ControlPlugin::load_controllers()
 {
-   std::vector<std::string> no_controllers = {};
-   if (controllers_to_load_name_.empty() == false)
-   {
-      rclcpp::Duration timeout = rclcpp::Duration(5, 0);
-      if (controller_manager_->switch_controller(controllers_to_load_name_, no_controllers, 2, true, timeout) == controller_interface::return_type::ERROR)
+   bool load_thread_finished = false;
+   auto load_controllers_fnc = [this, &load_thread_finished]() -> bool {
+      std::vector<std::string> no_controllers = {};
+      if (controllers_to_load_name_.empty() == false)
       {
-         RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to deactivate controllers");
-         return false;
+         rclcpp::Duration timeout = rclcpp::Duration(5, 0);
+         if (controller_manager_->switch_controller(controllers_to_load_name_, no_controllers, 2, true, timeout) == controller_interface::return_type::ERROR)
+         {
+            RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to deactivate controllers");
+            return false;
+         }
       }
+      load_thread_finished = true;
+
+      RCLCPP_WARN(node_->get_logger(), "All ros controllers loaded!");
+
+      return true;
+   };
+   std::thread load_controller_thread = std::thread(load_controllers_fnc);
+
+   while (load_thread_finished != true)
+   {
+      rclcpp::Time current_time = controller_manager_->get_clock()->now();
+      rclcpp::Duration sim_period = current_time - last_loop_time_;
+      controller_manager_->update(current_time, sim_period);
+      last_loop_time_ = current_time;
+
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(500ms);
    }
 
-   RCLCPP_WARN(node_->get_logger(), "All ros controllers loaded!");
-
-   return true;
-   // while (load_thread_finished != true)
-   // {
-   //    rclcpp::Time current_time = controller_manager_->get_clock()->now();
-   //    rclcpp::Duration sim_period = current_time - time_last_control_loop_;
-   //    controller_manager_->update(current_time, sim_period);
-   //    time_last_control_loop_ = current_time;
-
-   //    using namespace std::chrono_literals;
-   //    std::this_thread::sleep_for(500ms);
-   // }
-
-   // if (load_controller_thread.joinable())
-   //    load_controller_thread.join();
+   if (load_controller_thread.joinable())
+      load_controller_thread.join();
 
    return true;
 }
 
 bool MujocoRos2ControlPlugin::unload_controllers()
 {
-   std::vector<std::string> no_controllers = {};
-   if (controllers_to_load_name_.empty() == false)
-   {
-      rclcpp::Duration timeout = rclcpp::Duration(5, 0);
-      if (controller_manager_->switch_controller(no_controllers, controllers_to_load_name_, 2, false, timeout) == controller_interface::return_type::ERROR)
+   bool unload_thread_finished = false;
+   auto load_controllers_fnc = [this, &unload_thread_finished]() -> bool {
+      std::vector<std::string> no_controllers = {};
+      if (controllers_to_load_name_.empty() == false)
       {
-         RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to deactivate controllers");
-         return false;
+         rclcpp::Duration timeout = rclcpp::Duration(5, 0);
+         if (controller_manager_->switch_controller(no_controllers, controllers_to_load_name_, 2, false, timeout) == controller_interface::return_type::ERROR)
+         {
+            RCLCPP_ERROR(controller_manager_->get_logger(), "Failed to deactivate controllers");
+            return false;
+         }
       }
+
+      unload_thread_finished = true;
+      RCLCPP_WARN(node_->get_logger(), "All ros controllers unloaded!");
+
+      return true;
+   };
+   std::thread unload_controller_thread = std::thread(load_controllers_fnc);
+
+   while (unload_thread_finished != true)
+   {
+      rclcpp::Time current_time = controller_manager_->get_clock()->now();
+      rclcpp::Duration sim_period = current_time - last_loop_time_;
+      controller_manager_->update(current_time, sim_period);
+      last_loop_time_ = current_time;
+
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(500ms);
    }
 
-   RCLCPP_WARN(node_->get_logger(), "All ros controllers unloaded!");
-
-   return true;
-
-   // while (unload_thread_finished != true)
-   // {
-   //    rclcpp::Time current_time = controller_manager_->get_clock()->now();
-   //    rclcpp::Duration sim_period = current_time - time_last_control_loop_;
-   //    controller_manager_->update(time_last_control_loop_, sim_period);
-
-   //    time_last_control_loop_ = current_time;
-
-   //    using namespace std::chrono_literals;
-   //    std::this_thread::sleep_for(500ms);
-   // }
-
-   // if (unload_controller_thread.joinable())
-   //    unload_controller_thread.join();
+   if (unload_controller_thread.joinable())
+      unload_controller_thread.join();
 
    return true;
 }
@@ -361,7 +360,8 @@ bool MujocoRos2ControlPlugin::unload_controllers()
 bool MujocoRos2ControlPlugin::launch_controllers()
 {
    // Launching ros controller spawner launch file
-   std::string launch_file_path = "/home/niccolo-hiro/ros/ur_mujoco_ws/install/ur_hiro_mujoco/share/ur_hiro_mujoco/launch/";
+   std::string path_to_ur_hiro = ament_index_cpp::get_package_share_directory("ur_hiro_mujoco");
+   std::string launch_file_path = path_to_ur_hiro + "/launch/";
    std::string launch_file_name = "spawn_controllers.launch.py";
 
    std::string controller_to_start_arg = " controllers_to_start:=[";
@@ -389,13 +389,13 @@ bool MujocoRos2ControlPlugin::launch_controllers()
    return true;
 }
 
-rclcpp::Time MujocoRos2ControlPlugin::ros_time_from_mujoco_time(mjData* mj_data)
-{
-   auto sim_time = mj_data->time;
-   int sim_time_sec = static_cast<int>(sim_time);
-   int sim_time_nanosec = static_cast<int>((sim_time - sim_time_sec) * 1000000000);
+// rclcpp::Time MujocoRos2ControlPlugin::ros_time_from_mujoco_time(mjData* mj_data)
+// {
+//    auto sim_time = mj_data->time;
+//    int sim_time_sec = static_cast<int>(sim_time);
+//    int sim_time_nanosec = static_cast<int>((sim_time - sim_time_sec) * 1000000000);
 
-   return rclcpp::Time(sim_time_sec, sim_time_nanosec, RCL_ROS_TIME);
-}
+//    return rclcpp::Time(sim_time_sec, sim_time_nanosec, RCL_ROS_TIME);
+// }
 
 }  // namespace mujoco_ros2_control

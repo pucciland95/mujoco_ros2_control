@@ -3,6 +3,7 @@
 
 // ROS2
 #include <rclcpp/rclcpp.hpp>
+#include "ament_index_cpp/get_package_share_directory.hpp"
 #include <std_msgs/msg/string.hpp>
 #include "pluginlib/class_loader.hpp"
 #include "rosgraph_msgs/msg/clock.hpp"
@@ -67,6 +68,7 @@ class MJResourceManager : public hardware_interface::ResourceManager
          try
          {
             mujoco_system = std::unique_ptr<mujoco_ros2_control::MujocoSystemInterface>(mj_system_loader_.createUnmanagedInstance(robot_hw_sim_type_str_));
+            p_mujoco_system = mujoco_system.get();
          }
          catch (pluginlib::PluginlibException& ex)
          {
@@ -90,6 +92,15 @@ class MJResourceManager : public hardware_interface::ResourceManager
       return components_are_loaded_and_initialized_;
    }
 
+   bool reset_resource_manager()
+   {
+      bool ok = false;
+      if(p_mujoco_system != nullptr)
+         ok = p_mujoco_system->reset_sim();
+
+      return ok;
+   }
+
  private:
    std::shared_ptr<rclcpp::Node> node_;
    const mjModel* mj_model_;
@@ -97,6 +108,7 @@ class MJResourceManager : public hardware_interface::ResourceManager
 
    /// \brief Interface loader
    pluginlib::ClassLoader<mujoco_ros2_control::MujocoSystemInterface> mj_system_loader_;
+   mujoco_ros2_control::MujocoSystemInterface* p_mujoco_system;
    rclcpp::Logger logger_;
 };
 
@@ -124,7 +136,7 @@ class MujocoRos2ControlPlugin
      \param actuator_id actuator ID
      \param topic_name topic name
    */
-   MujocoRos2ControlPlugin(std::string controller_to_load_name) : last_loop_time_(0, 0, RCL_ROS_TIME), last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
+   MujocoRos2ControlPlugin(std::string controller_to_load_name) : last_loop_time_(0, 0, RCL_ROS_TIME) // , last_update_sim_time_ros_(0, 0, RCL_ROS_TIME)
    {
       controllers_to_load_name_.push_back(controller_to_load_name);
    }
@@ -165,12 +177,9 @@ class MujocoRos2ControlPlugin
     */
    bool initialise_controller_manager(const mjModel* mj_model, mjData* mj_data);
 
-
-   bool are_controllers_loaded();
-
-   /** \brief activates the controllers.
+   /** \brief checks whether the controllers are loaded.
     */
-   bool configure_controllers();
+   bool are_controllers_loaded();
 
    /** \brief loads the controllers have been passed to the mujoco plugin (aka: controllers_to_load_name_).
     */
@@ -185,7 +194,7 @@ class MujocoRos2ControlPlugin
     */
    bool launch_controllers();
 
-   rclcpp::Time ros_time_from_mujoco_time(mjData* mj_data);
+   // rclcpp::Time ros_time_from_mujoco_time(mjData* mj_data);
 
 
  protected:
@@ -193,13 +202,10 @@ class MujocoRos2ControlPlugin
    rclcpp::Node::SharedPtr node_;
    rclcpp::executors::MultiThreadedExecutor::SharedPtr executor_;
    rclcpp::Duration control_period_ = rclcpp::Duration(1, 0);
-   // rclcpp::Time time_since_sim_started_;
    rclcpp::Time last_loop_time_;
-   rclcpp::Time last_update_sim_time_ros_;
    std::shared_ptr<controller_manager::ControllerManager> controller_manager_;
-   // std::string robot_description_;
-   // mujoco_ros2_control::MujocoSystemInterface *p_mujoco_system_;
    std::vector<std::string> controllers_to_load_name_ = { "joint_state_broadcaster" };
+   mujoco_ros2_control::MJResourceManager* p_mj_resource_manager_;
 
    // Non ROS variables
    std::thread cm_thread_;

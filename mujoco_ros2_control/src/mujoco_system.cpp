@@ -221,7 +221,7 @@ void MujocoSystem::set_initial_pose()
 {
    for (auto& joint_state : joint_states_)
    {
-      // mj_data_->ctrl[joint_state.mj_vel_adr] = joint_state.position;
+      // mj_data_->ctrl[joint_state.mj_vel_adr] = 0.0;
       mj_data_->qpos[joint_state.mj_pos_adr] = joint_state.initial_position;
       mj_data_->qvel[joint_state.mj_vel_adr] = joint_state.initial_velocity;
    }
